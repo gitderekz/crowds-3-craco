@@ -1,0 +1,64 @@
+/* ThemeToggle.css */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  
+  .slider {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100px; /* Adjust width as needed */
+    height: 30px; /* Adjust height as needed */
+    padding: 5px;
+    border-radius: 15px;
+    position: relative;
+    transition: background 0.3s ease;
+  }
+  
+  .slider.light {
+    background: var(--primary-color); /* Neon Blue for light mode */
+  }
+  
+  .slider.dark {
+    background: #1f2a44; /* Deep Navy for dark mode */
+  }
+  
+  .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; /* Adjust icon size */
+    height: 24px; /* Adjust icon size */
+    border-radius: 50%;
+    background: #ffffff; /* White background for icon */
+    color: #333333; /* Dark Charcoal for icon */
+    transition: transform 0.3s ease, color 0.3s ease;
+  }
+  
+  .slider.light .icon {
+    transform: translateX(0); /* Icon on the left for light mode */
+  }
+  
+  .slider.dark .icon {
+    transform: translateX(60px); /* Icon on the right for dark mode */
+  }
+  
+  .slider span {
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff; /* White text */
+    position: absolute; /* Position the text absolutely */
+    transition: opacity 0.3s ease;
+  }
+  
+  .slider.light span {
+    left: 40px; /* Position text on the right in light mode */
+    opacity: 1; /* Show text in light mode */
+  }
+  
+  .slider.dark span {
+    left: 10px; /* Position text on the left in dark mode */
+    opacity: 1; /* Show text in dark mode */
+  }

@@ -1,0 +1,227 @@
+/* PhotoModal.css - Additional Styles */
+
+.modal-columns-container {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+    margin-bottom: 0px;
+  }
+
+  /* HEADER */
+  
+  /* Modal Header Styles */
+ .modal-header {
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 2px;
+    background: #ffffff;
+    z-index: 10;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-title {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80%;
+  }
+  
+  /* Dark mode header styles */
+  .dark .modal-header {
+    background: #2c2c2c;
+    border-bottom: 1px solid #444;
+  }
+  
+  .dark .modal-title {
+    color: #e0e0e0;
+  }
+  
+  /* Make content scrollable */
+  .modal-scrollable-content {
+    max-height: calc(100vh - 150px); /* Adjust based on your header height */
+    /* overflow-y: auto; */
+    /* padding: 0 20px 20px; */
+  }
+  /* END HEADER */
+
+  .modal-left-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .modal-right-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .modal-interaction-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .modal-content-image {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  
+  .modal-content-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .modal-bottom-row {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: auto;
+  }
+  
+  .image-slider-section {
+    width: 96%;
+    margin-left: 2%;
+    margin-bottom: 0px;
+  }
+  
+  .image-slider-section h3 {
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  .slider-image-container {
+    height: 250px; /* Fixed height for all images */
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  
+  .slider-image-container img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .slider-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* This ensures images cover the container while maintaining aspect ratio */
+    display: block;
+  }
+  
+  /* Adjust slider dots position */
+  .slick-dots {
+    /* bottom: -25px; */
+    bottom: 10%;
+  }
+  
+  /* Make sure the slider track has consistent height */
+  .slick-track {
+    display: flex;
+    align-items: center;
+  }  
+
+  .light .slick-prev,
+  .light .slick-next{
+    background: #2c2c2c;
+    border-radius: 20px;
+  }
+  .rotate-180{
+    transform: rotate(180deg);
+  }
+  
+  /* Adjust existing styles */
+  .modal-content {
+    display: flex;
+    flex-direction: column;
+    /* padding: 20px; */
+  }
+  
+  .events-section,
+  .address-section,
+  .services-section {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  
+  .title-section {
+    margin-bottom: 15px;
+  }
+  
+  /* Dark mode adjustments */
+  .dark .events-section,
+  .dark .address-section,
+  .dark .services-section {
+    background: #121212;
+  }
+  
+  @media (max-width: 768px) {
+    .modal-columns-container {
+      flex-direction: column;
+    }
+
+    /* .modal-content {
+        width: 90%;
+    } */
+
+    .modal-title {
+      font-size: 1.2rem;
+      max-width: 70%;
+    }
+    
+    .modal-scrollable-content {
+      max-height: calc(100vh - 130px);
+    }
+  
+    .image-slider-section {
+      width: 96%;
+      margin-left: 2%;
+      margin-bottom: 0px;
+    }
+    
+    .slider-image-container {
+      height: 200px;
+    }
+    
+    .modal-content-image {
+      max-height: 300px;
+    }
+    
+    .slider-image-container img {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+
+    .slick-dots {
+        bottom: 0%;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .slider-image-container {
+      height: 150px;
+    }
+  }

@@ -1,0 +1,811 @@
+- Club gani inawatu wengi > wachache
+- Request musics, create music playlist on localStorage
+
+- categories [Clubs, Beach, Beach house, Pub, Sports arena, Tour, Church, Mosque],
+- Display club cards in accordance with number of attendees in descending order
+- Club gif-slide, name, address, location, current & upcoming event with their time 
+- Click to open then, Open the club chat screen for that specific club
+- The club chat screen should have participants list section on the left, chats section on center 
+    where users can share messages,emojis,pictures,videos,gifs,stickers and audios. There should be two 
+    floating buttons(present & absent) on top of chats where the aim is to inform others how many people
+    will attend to the club on that day where every click on present adds and on absent minus the number 
+    of club attendees.
+    Lastly club info section on the right
+- on clicking the participant on the left should open the one to one chat screen for 
+    one to one conversation
+- The one to one chat screen should have chats on the left and the other participant info on the right,
+..............
+Now i want to implement functionalities
+Use and implement all the necessary features like 
+websockets for instant/live-updates, 
+show who is typing, 
+last seen and Online status,
+notification sounds e.t.c
+ClubChatScreen is for people to chat under a selected club/group where they can send texts,stickers,gifs,files,location,images,videos & audios
+PrivateChatScreen is for 2 people to chat where they can send texts,stickers,gifs,files,location,images,videos & audios
+
+Also they can video call and voice call on both ClubChatScreen & PrivateChatScreen for this we can use webRTC
+
+images,files,Video and audio shared should not exceed 10mb
+
+If we are going to add any table use this flow, tableRoutes->tableModel->middleware->tableController
+and here is example of model 
+Photo.js;
+
+module.exports = (sequelize, DataTypes) => {
+    const photo = sequelize.define('photo', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'users', // References the users table
+          key: 'id',
+        },
+      },
+      clientId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'users', // References the users table
+          key: 'id',
+        },
+      },
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      category: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      event: {
+        type: DataTypes.STRING,
+        defaultValue: 'none',
+      },
+      displayOnHome: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      imageUrl: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      mediaType: {
+        type: DataTypes.ENUM('video','audio','image','gif'),
+        allowNull: false,
+      },
+      photoLikes: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
+    },
+    {
+      tableName: 'photos', // Explicitly set the table name to lowercase
+    });
+  
+    // Define associations
+    photo.associate = (models) => {
+      // A photo belongs to a user
+      photo.belongsTo(models.user, { foreignKey: 'userId', onDelete: 'CASCADE' });
+  
+      // A photo belongs to a client
+      photo.belongsTo(models.user, { foreignKey: 'clientId', onDelete: 'CASCADE' });
+  
+      // A photo can have many likes
+      photo.hasMany(models.like, { foreignKey: 'photoId', onDelete: 'CASCADE' });
+    };
+  
+    return photo;
+  };
+
+.....................
+There are some inconsistencies on how to useSound in components in my ClubChatScreen
+
+I have not seen any changes on PrivateChatScreen so Complete changes as required
+
+I have two main folders backend and frontend
+Where do i put this? services/webrtcService.js
+Where do i install socket.io ws
+
+Help me to modify and give all codes for server.js if here is my 
+current codes
+const http = require('http');
+const socketio = require('socket.io');
+require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors');
+const db = require('./models');
+const authRoutes = require('./routes/authRoutes');
+const photoRoutes = require('./routes/photoRoutes');
+const userRoutes = require('./routes/userRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const fs = require('fs');
+const path = require('path');
+
+const app = express();
+app.use(cors({
+    origin: ['http://localhost:3000','http://192.168.8.102:3000','http://192.168.56.1:3000','http://localhost:3001'], // Replace with your frontend URL
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+    credentials: true, // Allow cookies and credentials
+}));
+app.use(express.json());
+
+// create upload the directory if it doesn’t exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/photos', photoRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/categories', categoryRoutes);
+
+db.sequelize.sync().then(() => {
+  app.listen(5000, () => console.log('Server running on port 5000'));
+});
+
+..........^^^^^^^^^^^^^^^^..........
+Now i have previous version of webrtcService.js
+const { v4: uuidv4 } = require('uuid');
+const peers = {};
+
+const createPeer = (userId, stream) => {
+  const peerId = uuidv4();
+  const peer = new SimplePeer({
+    initiator: true,
+    trickle: false,
+    stream,
+  });
+
+  peers[peerId] = { peer, userId };
+  return peerId;
+};
+
+module.exports = {
+  createPeer,
+  getPeer: (peerId) => peers[peerId],
+  removePeer: (peerId) => delete peers[peerId],
+};
+And the new one you provided 
+
+const { v4: uuidv4 } = require('uuid');
+
+class WebRTCService {
+  constructor(io) {
+    this.io = io;
+    this.peers = {};
+    this.setupSocketListeners();
+  }
+
+  setupSocketListeners() {
+    this.io.on('connection', (socket) => {
+      socket.on('joinCall', ({ roomId, userId }) => {
+        socket.join(`call-${roomId}`);
+        socket.callRoomId = roomId;
+        socket.userId = userId;
+        
+        // Notify others in the call
+        socket.to(`call-${roomId}`).emit('userJoined', { userId });
+      });
+
+      socket.on('offer', ({ offer, targetUserId, roomId }) => {
+        socket.to(`call-${roomId}`).emit('offer', { 
+          offer, 
+          senderId: socket.userId,
+          targetUserId 
+        });
+      });
+
+      socket.on('answer', ({ answer, targetUserId, roomId }) => {
+        socket.to(`call-${roomId}`).emit('answer', { 
+          answer, 
+          senderId: socket.userId,
+          targetUserId 
+        });
+      });
+
+      socket.on('ice-candidate', ({ candidate, targetUserId, roomId }) => {
+        socket.to(`call-${roomId}`).emit('ice-candidate', { 
+          candidate, 
+          senderId: socket.userId,
+          targetUserId 
+        });
+      });
+
+      socket.on('disconnect', () => {
+        if (socket.callRoomId) {
+          this.io.to(`call-${socket.callRoomId}`).emit('userLeft', { 
+            userId: socket.userId 
+          });
+        }
+      });
+    });
+  }
+}
+
+module.exports = WebRTCService;
+
+What should i do?
+
+
+Also i have previous version of VideoCall.jsx
+import { useEffect, useRef, useState } from 'react';
+import Peer from 'simple-peer';
+
+const VideoCall = ({ roomId, userId, onClose }) => {
+  const [stream, setStream] = useState(null);
+  const [peers, setPeers] = useState([]);
+  const userVideo = useRef();
+  const peersRef = useRef([]);
+  const socketRef = useRef();
+
+  useEffect(() => {
+    socketRef.current = io('http://localhost:5000');
+    
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        setStream(stream);
+        if (userVideo.current) {
+          userVideo.current.srcObject = stream;
+        }
+        
+        socketRef.current.emit('joinCall', { roomId, userId });
+        
+        socketRef.current.on('userJoined', ({ signal, callerId }) => {
+          const peer = createPeer(callerId, roomId, stream);
+          
+          peer.signal(signal);
+          peersRef.current.push({ peerId: callerId, peer });
+          setPeers(users => [...users, { id: callerId, peer }]);
+        });
+        
+        socketRef.current.on('receivingSignal', ({ signal, callerId }) => {
+          const peer = peersRef.current.find(p => p.peerId === callerId)?.peer;
+          peer.signal(signal);
+        });
+      });
+      
+    return () => {
+      stream?.getTracks().forEach(track => track.stop());
+      socketRef.current.disconnect();
+    };
+  }, [roomId, userId]);
+
+  const createPeer = (userId, roomId, stream) => {
+    const peer = new Peer({ initiator: true, trickle: false, stream });
+    
+    peer.on('signal', signal => {
+      socketRef.current.emit('sendingSignal', { signal, userId, roomId });
+    });
+    
+    return peer;
+  };
+
+  return (
+    <div className="video-call-container">
+      <video ref={userVideo} autoPlay muted />
+      {peers.map(peer => (
+        <video key={peer.id} autoPlay />
+      ))}
+      <button onClick={onClose}>End Call</button>
+    </div>
+  );
+};
+And the new one you provided 
+
+import React, { useEffect, useRef, useState } from 'react';
+import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+import Peer from 'simple-peer';
+
+const VideoCall = ({ roomId, userId, otherUserId, callType, onEndCall }) => {
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const peerRef = useRef();
+  const localVideoRef = useRef();
+  const remoteVideoRef = useRef();
+  const socketRef = useRef();
+
+  useEffect(() => {
+    // Initialize socket connection
+    socketRef.current = io('http://localhost:5000', {
+      withCredentials: true,
+      transports: ['websocket']
+    });
+
+    // Join call room
+    socketRef.current.emit('joinCall', { roomId, userId });
+
+    // Get user media
+    navigator.mediaDevices.getUserMedia({
+      video: callType === 'video',
+      audio: true
+    }).then(stream => {
+      setLocalStream(stream);
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      // Initialize peer connection
+      peerRef.current = new Peer({
+        initiator: true,
+        trickle: false,
+        stream
+      });
+
+      // Handle peer events
+      peerRef.current.on('signal', signal => {
+        socketRef.current.emit('offer', {
+          offer: signal,
+          targetUserId: otherUserId,
+          roomId
+        });
+      });
+
+      peerRef.current.on('stream', stream => {
+        setRemoteStream(stream);
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = stream;
+        }
+      });
+
+      peerRef.current.on('error', err => {
+        console.error('Peer error:', err);
+        onEndCall();
+      });
+
+      // Listen for answers
+      socketRef.current.on('answer', ({ answer, senderId }) => {
+        if (senderId === otherUserId && peerRef.current) {
+          peerRef.current.signal(answer);
+        }
+      });
+
+      // Listen for ICE candidates
+      socketRef.current.on('ice-candidate', ({ candidate, senderId }) => {
+        if (senderId === otherUserId && peerRef.current) {
+          peerRef.current.signal(candidate);
+        }
+      });
+    }).catch(err => {
+      console.error('Failed to get media:', err);
+      onEndCall();
+    });
+
+    return () => {
+      if (peerRef.current) {
+        peerRef.current.destroy();
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      socketRef.current.disconnect();
+    };
+  }, [roomId, userId, otherUserId, callType]);
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setVideoEnabled(videoTrack.enabled);
+      }
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setAudioEnabled(audioTrack.enabled);
+      }
+    }
+  };
+
+  return (
+    <div className="video-call-overlay">
+      <div className="video-call-container">
+        <div className="video-container">
+          {remoteStream && (
+            <video 
+              ref={remoteVideoRef} 
+              autoPlay 
+              playsInline 
+              className="remote-video"
+            />
+          )}
+          {localStream && (
+            <video 
+              ref={localVideoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="local-video"
+            />
+          )}
+        </div>
+        
+        <div className="call-controls">
+          <button onClick={toggleVideo} className="control-btn">
+            {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
+          </button>
+          <button onClick={toggleAudio} className="control-btn">
+            {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
+          </button>
+          <button onClick={onEndCall} className="end-call-btn">
+            <FaPhoneSlash />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default VideoCall;
+
+What should i do?
+
+Now lets finish
+Create controllers for all new models
+Set up routes for all new endpoints
+Add proper error handling
+Implement client-side components for:
+File sharing UI,
+Video call UI,
+Typing indicators,
+Online status indicators,
+
+Where should i put errorMiddleware.js?
+
+
+Let's do it this way
+Initially do the optimistic way and add a small loading indicator, 
+then after successfully sent remove loading indicator and put a small check mark
+ and ditch the optimistic 
+ If it fails then replace the loading with red exclamation mark and (couldn't send) comment
+ You can add more other stuffs for more usability and functionality
+ I dont think i've explained it well but i think you get the point
+
+xxxxxxxxxxxxxxxxxxxxx
+Now i want to add an overlay on the right corner "Join chat" followed by Fa chat icon , Where when clicked should open the club chat screen  for that specific photo(club, beach, beach house or a pub). 
+- The club chat screen should have participants list section on the left, chats section on center 
+    where users can share messages,emojis,pictures,videos,gifs,stickers and audios. There should be two 
+    floating buttons(present & absent) on top of chats where the aim is to inform others how many people
+    will attend to the club on that day where every click on present adds and on absent minus the number 
+    of club attendees.
+    Lastly club info section on the right
+- on clicking the participant on the left should open the one to one chat screen for 
+    one to one conversation
+- The one to one chat screen should have chats on the left and the other participant info on the right,
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Just like this overlay is positioned at the bottom
+<div className="photo-overlay">
+                <div className="photo-name">{photo.name}</div>
+                <div
+                  className="photo-likes"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent handleMediaClick from triggering
+                    handleLike(photo.id);
+                  }}
+                >
+                  <FaHeart className={`fa-heart ${hasLiked ? 'liked' : ''}`} />
+                  {hasLiked ? 'Liked' : 'Likes'}
+                  <span>{likes[photo.id] ?? photo.photoLikes}</span>
+                </div>
+              </div>
+
+How can i add another overlay on the left side and should 
+cover 1/3 of width and stays on top of this "photo-overlay"
+It has to display schedule current event and its time, also next
+event with its time
+It should be more opaque than the "photo-overlay"
+
+Everything is working fine but here are few modifications
+event-overlay needs to be more translucent not more opaque
+and should not block the photo-overlay, since photo-overlay
+should take the bottom while event-overlay should take the left 
+while leaving space for photo-overlay to take the whole width down there
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  .chat-section,
+  .messages-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .message-input {
+    display: flex;
+    padding: 15px;
+    background: #f5f5f5;
+    align-items: center;
+    gap: 10px;
+  }
+  .chat-header {
+    background: #4fd1c5;
+    color: white;
+    padding-inline: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  For small screens not everything can fit to be displayes
+  So now i want for small screens to display each section individually at time
+  in ClubChatScreen & PrivateChatScreen
+  There should be tabs that can either be scrollable or touched
+  to navigate to a specific page component
+  For ClubChatScreen [ participants-section, chat-section, info-section ]
+  For PrivateChatScreen [messages-section, user-info-section]
+  I want nice decorated tab headers and good arrangement of components
+
+I think you have all the required files app.css, ClubChatScreen & PrivateChatScreen. If not 
+you can tell me to provide so you can have a reference 
+
+Now i want to see everything present on each tab example
+on info tab i only see 'section-header & club-header' untill i scroll down
+but there is enough space left down with nothing, i want to 
+use all the available height
+Also in chat everything is stacked on the top and leave the remain bottom half 
+empty, Lets use all available height
+And for width lets accomodate everything on the visible layout no need to cut
+component at the right end of screen
+
+
+I want the tabs to ocuppy the height and width of 'chat-layout'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  .chat-section,
+  .messages-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .messages-container {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+  }
+
+.participants-section{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.participants-list{
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+
+
+`````````````````````
+outing.com
+nishtue.com
+sehemu-za-si.com
+``idontcare.com
+``whatever.com
+``crowds.com
+``outie.com
+``intheshallow.com
+dinner
+incrowd.com
+crush.com
+stampede.com
+tambourine.com
+night.com
+dark.com
+lights.com
+lonely.com
+vintage.com
+connection.com
+placetobe.com
+>tarsias
+
+#4fd1c5; /* Neon Blue for light mode */,
+#4CAF50,
+#009688,
+#2196F3,
+#644ccc,
+#FF5722,
+#ff8da1,
+#FFEB3B,
+#ae2a2a,
+#56084a,
+
+---------------------
+Given PhotoGrid.jsx
+
+Given PhotoModal.jsx
+
+
+I want to decorate this page, 
+add address section which will contain name,street,building,geo location
+add services offered section which will contain list of services like food,drinks,music,swimming pools e.t.c
+add continous image slider section ath the bottom which will contain list of images for that selected item 
+add people section to display amount users for that selected item
+modify events schedule list to look more appealing
+Rearange everything to look neat and change download button to "join chat" 
+Add
+
+Immediate after jwt expires
+Now i want to do authentication/credibility/authorization/ management
+Check if jwt has expired to not open page with must a credibility/authenticated like ClubChatScreen & PrivateChatScreen
+Then suggest to login by opening the authmodal form.
+Also automatic remove some components that are found for only loged in user like profile (picture & username replace with that FaUser),users button & upload button in header.jsx
+----------------
+I want to create a settings popup modal that has two sections in tabs with tab titles[user setings, photo settings] where user will be able to..
+1st section user details
+update username,avatar,password,email 
+2nd section is settings for photos related to this user,
+If this user has id similar to clientId or userId in entry(s) in photos table then should be able to create and update these photos columns 
+schedule eg[10:00 AM - Karioke,11:30 AM - Live performance], 
+location eg[Name: CLUB CR,Street: 123 Main Street,Building: Building A,Location: 40.7128° N, 74.0060° W],
+services eg[Food & Drinks, Live Music, Swimming Pool, Free WiFi, Parking] & 
+gallery slider photos list eg[/uploads/gallery/1744046390561.jpg,/uploads/gallery/1739655370104.jpg,/uploads/gallery/1739655399020.jpg] in photos table. And User will have ability to do this only if the value in column clientId or userId matches the loged in user id
+This should just be a popup modal like this one here
+AuthModal.jsx
+
+Here is existing userController.js
+
+photoController.js
+-----------------------------------------------
+Lets rearange this photomodal.jsx model to fit and appeal on screen 
+It should have two columns and one row at the bottom
+The left column should be filled with.. 
+modal-content-image, 
+[chat-overlay-modal & like-section these should be in one row],  
+events-section
+
+The right column should be filled with..
+title-section,
+address-section,
+services-section,
+
+The one row at the bottom should be filled with..
+screen wide image-slider-section,
+buttons,
+
+It uses style from both app.css and  PhotoModal.css
+here is the photomodal.jsx
+
+Here is the PhotoModal.css
+.modal-content {
+    background: #ffffff; /* Light Mode Card Background */
+    color: #333333; /* Light Mode Text Color */
+    width: 60%; /* Default width for large screens */
+    height: 60%; /* Default height for large screens */
+    margin: auto;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-between;
+    position: relative; /* Ensures the close icon stays in place */
+}
+
+.photo-modal img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 80vh;  /* Max height as a percentage of the viewport height */
+    object-fit: contain;  /* This will ensure the image does not stretch */
+    margin: 0 auto;  /* Center the image */
+    display: block;  /* Remove the default inline display property of the image */
+}
+
+.details h2 {
+    color: #333333; /* Light Mode Text */
+}
+
+.details p {
+    color: #555555; /* Light Gray Text */
+}
+
+.like-section p {
+    color: #333333; /* Light Mode Text */
+}
+
+.fa-heart.modal {
+    /*color: #e74c3c; /* Red Heart */
+}
+
+.fa-heart.modal.liked {
+    /*color: #4fd1c5; /* Neon Blue when liked */
+}
+
+.buttons a {
+    background: #4fd1c5; /* Neon Blue */
+    color: #ffffff; /* White Text */
+}
+
+.close-icon {
+    color: #333333; /* Close icon color */
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer; /* Ensure the close button is clickable */
+}
+
+.close-icon:hover {
+    color: #ff5f5f; /* Soft Coral on hover */
+}
+
+/* Dark Mode Colors */
+.dark .photo-modal {
+    background: rgba(0, 0, 0, 0.8); /* Darker overlay */
+}
+
+.dark .modal-content {
+    background: #2c2c2c; /* Dark Background */
+    color: #e0e0e0; /* Light Text Color */
+}
+
+.dark .details h2 {
+    color: #e0e0e0; /* Light Text Color */
+}
+
+.dark .details p {
+    color: #ccc; /* Light Gray Text */
+}
+
+.dark .like-section p {
+    color: #e0e0e0; /* Light Gray Text */
+}
+
+.dark .fa-heart.modal {
+    /*color: #e74c3c; /* Red Heart */
+}
+
+.dark .fa-heart.modal.liked {
+    /*color: #4fd1c5; /* Neon Blue when liked */
+}
+
+.dark .buttons a {
+    background: #4fd1c5; /* Neon Blue */
+    color: #121212; /* Deep Charcoal Text */
+}
+
+.dark .close-icon {
+    color: #e0e0e0; /* Light Gray */
+}
+
+.dark .close-icon:hover {
+    color: #ff5f5f; /* Soft Coral on hover */
+}
+
+/* For larger screens */
+@media (min-width: 768px) {
+    .modal-content {
+        width: 60%; /* For larger screens, use 60% width */
+        height: 60%; /* Fixed height for larger screens */
+        overflow-y: hidden; /* Disable scroll for larger screens */
+    }
+}
+
+
+And here is app.css
+
+services-section
+services-list
+
+
+
+IMPORTANT!, Don't give codes in chunk, give me back the full modified working codes, (don't remove comments and unused variables if they are there)
+and where exactly to put each code given
+```````````````````````
+USERNAME: FElly
+PASSWORD: E-ODranya
+Username: Koboko
+password: 12345

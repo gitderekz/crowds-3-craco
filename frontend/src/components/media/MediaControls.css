@@ -1,0 +1,23 @@
+.media-controls {
+    display: flex;
+    gap: 8px;
+    margin-right: 8px;
+  }
+  
+  /* .media-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+  }
+  
+  .media-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  .media-btn.dark:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  } */

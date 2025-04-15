@@ -1,0 +1,21 @@
+/* Light Mode */
+.light {
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.light .header,
+.light .footer {
+  background-color: var(--primary-light);/*#f4f4f4;*/
+}
+
+/* Dark Mode */
+.dark {
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+.dark .header,
+.dark .footer {
+  background-color: #2c2c2c;
+}

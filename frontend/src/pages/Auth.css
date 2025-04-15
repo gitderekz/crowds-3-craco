@@ -1,0 +1,313 @@
+/* Auth Modal Styles */
+
+.auth-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .auth-modal {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #ffffff; /* Light Mode Card Background */
+    padding: 2rem;
+    border-radius: 1.25rem;
+    width: 24rem;
+    text-align: center;
+    position: relative;
+    animation: fadeIn 0.3s ease-in-out;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .register-card {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .register-card{
+    padding: 1rem;
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .register-card.light .register-title {
+    color: #319795;
+  }
+  .register-card.dark .register-title {
+    color: #fff;
+  }
+ .register-title {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .icon-circle {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    background-color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a0aec0;
+    font-size: 1rem;
+    cursor: not-allowed;
+  }
+  
+  .auth-modal.light .close-button{
+    background: red;
+    color: white;
+  }
+  .auth-modal.dark .close-button{
+    background: red;
+    color: white;
+  }
+  
+  .social-icons.light .icon-circle,
+  .register-card.light .register-form button{
+    background: #4fd1c5;
+    color: white;
+  }
+  .social-icons.dark  .icon-circle,
+  .register-card.dark  .register-form button{
+    background: #1f2a44;
+    color: white;
+  }
+
+  .register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .register-card.light .register-form .input-group {
+    background: white;
+    border: 1px solid #d3d3d3;
+    color: #333333;
+  }
+  .register-card.dark .register-form .input-group {
+    background: #2c2c2c;
+    border: 1px solid #444;
+    color: #e0e0e0;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+    padding: 0rem 0.75rem;
+    border-radius: 1rem;
+  }
+
+  .input-icon {
+    color: #718096;
+    margin-right: 0.5rem;
+    font-size: 1rem;
+    margin-right: 10px;
+    font-size: 18px;
+  }
+
+  .input-field,
+  .select-field,
+  .file-field {
+    border: none;
+    outline: none;
+    flex: 1;
+    font-size: 0.9rem;
+  }
+
+  .select-field,
+  .file-field {
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+    color: #2d3748;
+  }
+
+  .avatar-preview {
+    position: relative;
+    display: inline-block;
+    margin-left: 10px;
+  }
+  
+  .remove-avatar {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .register-button {
+    width: auto;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  .register-button:hover {
+    background-color: #319795;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Styles for all buttons inside the modal */
+  .auth-modal button {
+    width: 70%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  
+  /* Override styles for the close button */
+  .auth-modal .close-button {
+    width: auto; /* Reset width */
+    height: 40px;
+    width: 40px;
+    padding: 0.5rem; /* Adjust padding */
+    border: none; /* Remove border */
+    font-size: 1.5rem; /* Adjust font size */
+    position: absolute; /* Position in the top-right corner */
+    top: 4px;
+    right: 4px;
+    border-radius: 20px;
+    line-height: 1; /* Ensure the icon is centered */
+    display: inline-block; /* Prevent full-width behavior */
+  }
+  
+  .auth-modal .close-button:hover {
+    color: #ff5f5f; /* Soft Coral */
+  }
+  
+  .dark .auth-modal .close-button {
+    color: #e0e0e0; /* Light Gray */
+  }
+  
+  .dark .auth-modal .close-button:hover {
+    color: #ff5f5f; /* Soft Coral */
+  }
+  
+  .auth-modal h1 {
+    margin-bottom: 1.5rem;
+    font-size: 1.8rem;
+    color: #333333; /* Light Mode Text */
+  }
+  
+  .auth-modal form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .auth-modal input,
+  .auth-modal .selection  {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d3d3d3; /* Light Mode Border */
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .auth-modal input:focus,
+  .auth-modal .selection:focus {
+    border-color: #4fd1c5; /* Neon Blue */
+    box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.2); /* Neon Blue with opacity */
+  }
+  
+  .toggle-link {
+    color: #4fd1c5; /* Neon Blue */
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+  
+  .toggle-link:hover {
+    color: #3fb8a8; /* Slightly darker Neon Blue */
+    text-decoration: underline;
+  }
+  
+  .error {
+    color: #ff5f5f; /* Soft Coral */
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+  
+  /* Dark Mode Styles for Modal */
+  .dark .auth-modal {
+    background: #1f1f1f; /* Dark Mode Card Background */
+    color: #e0e0e0; /* Light Gray */
+  }
+  
+  .dark .auth-modal h1 {
+    color: #e0e0e0; /* Light Gray */
+  }
+  
+  .dark .auth-modal input, 
+  .dark .auth-modal .selection {
+    background: #2c2c2c; /* Darker Gray */
+    border: 1px solid #2c2c2c; /* Darker Gray */
+    color: #e0e0e0; /* Light Gray */
+  }
+  
+  .dark .auth-modal input:focus, 
+  .dark .auth-modal .selection:focus {
+    border-color: #4fd1c5; /* Neon Blue */
+    box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.2); /* Neon Blue with opacity */
+  }
+  
+  .dark .auth-modal button {
+    background: #4fd1c5; /* Neon Blue */
+    color: #121212; /* Deep Charcoal */
+  }
+  
+  .dark .auth-modal button:hover {
+    background: #3fb8a8; /* Slightly darker Neon Blue */
+  }
+  
+  .dark .toggle-link {
+    color: #4fd1c5; /* Neon Blue */
+  }
+  
+  .dark .toggle-link:hover {
+    color: #3fb8a8; /* Slightly darker Neon Blue */
+  }
