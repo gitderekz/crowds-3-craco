@@ -131,7 +131,7 @@ const connectedUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
-
+  
   socket.on('signal', ({ signal, to, from, roomId }) => {
     if (connectedUsers.has(to)) {
       io.to(connectedUsers.get(to)).emit('signal', { signal, from });
@@ -281,16 +281,6 @@ io.on('connection', (socket) => {
       });
     }
   });
-
-  socket.on('call-accepted', ({ roomId }) => {
-    // Broadcast to everyone else in the room (typically the caller)
-    socket.to(roomId).emit('call-accepted', { roomId });
-  });
-  socket.on('call-ended', ({ roomId }) => {
-    // Broadcast to the other participants in the room
-    socket.to(roomId).emit('call-ended', { roomId });
-  });
-  
 
   // WebRTC signaling handlers
   socket.on('call-offer', (data) => {
