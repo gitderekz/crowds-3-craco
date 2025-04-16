@@ -53,7 +53,7 @@ app.use(cors(corsOptions));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000
+  max: 100000
 });
 app.use('/api/', apiLimiter);
 
