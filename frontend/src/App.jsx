@@ -16,6 +16,7 @@ import { api, publicApi, getRefreshToken, setupTokenRefresh } from './services/a
 import useAuth from './hooks/useAuth';
 import io from 'socket.io-client';
 import NotificationBell from './components/NotificationBell';
+import useSound from './hooks/useSound';
 
 export const ThemeContext = React.createContext();
 export const AuthContext = React.createContext();
@@ -52,6 +53,12 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [incomingCall, setIncomingCall] = useState(null);
+  const { 
+    playNotification, 
+    playGroupChat, 
+    playSent,
+    playCall
+  } = useSound();
 
   // Initialize socket connection
   useEffect(() => {
@@ -70,16 +77,18 @@ function App() {
         setNotifications(prev => [...prev, notification]);
         setUnreadCount(prev => prev + 1);
         // Play notification sound
-        const audio = new Audio('/sounds/notification.mp3');
-        audio.play().catch(e => console.log('Audio play failed:', e));
+        // const audio = new Audio('./sounds/notification.mp3');
+        // audio.play().catch(e => console.log('Audio play failed:', e));
+        playNotification();
       });
       
       newSocket.on('incoming-call', (callData) => {
         setIncomingCall(callData);
         // Play ringtone
-        const ringtone = new Audio('/sounds/ringtone.mp3');
-        ringtone.loop = true;
-        ringtone.play().catch(e => console.log('Ringtone play failed:', e));
+        // const ringtone = new Audio('./sounds/ringtone.mp3');
+        // ringtone.loop = true;
+        // ringtone.play().catch(e => console.log('Ringtone play failed:', e));
+        playCall();
       });
       
       newSocket.on('user-online', ({ userId }) => {

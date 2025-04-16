@@ -86,7 +86,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         }
         
         // Play new ringtone
-        const newRingtone = new Audio('/sounds/ringtone.mp3');
+        const newRingtone = new Audio('../../assets/sounds/ringtone.mp3');
         newRingtone.loop = true;
         newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
         setRingtone(newRingtone);
