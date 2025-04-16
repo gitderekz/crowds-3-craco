@@ -804,8 +804,20 @@ services-list
 
 
 
-IMPORTANT!, Don't give codes in chunk, give me back the full modified working codes, (don't remove comments and unused variables if they are there)
-and where exactly to put each code given
+IMPORTANT!, Don't give codes in chunk, give me back the full modified working codes and where exactly to put each code given, 
+(don't remove comments and unused variables if they are there)
+Here is project strucure
+crowds
+  -backend
+    -controllers
+    -models
+    -routes
+    -config
+    -services
+    -server.js
+  -frontend
+    -src
+    -public
 ```````````````````````
 USERNAME: FElly
 PASSWORD: E-ODranya

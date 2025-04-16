@@ -12,7 +12,7 @@ const TypingIndicator = ({ typingUsers, users }) => {
 
     const names = typingUsers.map(userId => {
       const user = users.find(u => u.id === userId);
-      return user ? user.name : 'Someone';
+      return user ? user.username : 'Someone';
     });
 
     let text = '';

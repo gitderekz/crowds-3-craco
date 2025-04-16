@@ -308,7 +308,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
         setRingtone(newRingtone);
         
-        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.name}. Accept?`);
+        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
         if (confirmCall) {
           setCallType(callData.callType);
           setInCall(true);
@@ -375,7 +375,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 
       <div className={`chat-header ${theme}`}>
         <div className="header-user-info">
-          <h3>Chat with {user.name}</h3>
+          <h3>Chat with {user.username}</h3>
           <div className={`status ${isOnline ? 'online' : 'offline'}`}>
             {isOnline ? 'Online' : 'Offline'}
             {remoteIsTyping && isOnline && ' • Typing...'}
@@ -512,12 +512,12 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
             <div className="receiver-avatar">
                 {user?.avatar ? (
-                <img className='user-avatar' src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user?.avatar??"/uploads/avatar/default-avatar.png"}`} alt={user.name} />
+                <img className='user-avatar' src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user?.avatar??"/uploads/avatar/default-avatar.png"}`} alt={user.username} />
                 ) : (
                 <FaUser size={80} />
                 )}
             </div>
-            <h4>{user.name}</h4>
+            <h4>{user.username}</h4>
             <p className={`status ${user.online ? 'online' : 'offline'}`}>
                 {user.online ? 'Online' : 'Offline'}
             </p>
@@ -619,7 +619,7 @@ export default PrivateChatScreen;
 //   return (
 //     <div className={`private-chat-container ${theme}`}>
 //       <div className={`chat-header ${theme}`}>
-//         <h3>Chat with {user.name}</h3>
+//         <h3>Chat with {user.username}</h3>
 //         <button onClick={onClose}>✕</button>
 //       </div>
       
@@ -696,12 +696,12 @@ export default PrivateChatScreen;
 //         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
 //             <div className="user-avatar">
 //                 {user.avatar ? (
-//                 <img src={user.avatar} alt={user.name} />
+//                 <img src={user.avatar} alt={user.username} />
 //                 ) : (
 //                 <FaUser size={80} />
 //                 )}
 //             </div>
-//             <h4>{user.name}</h4>
+//             <h4>{user.username}</h4>
 //             <p className={`status ${user.online ? 'online' : 'offline'}`}>
 //                 {user.online ? 'Online' : 'Offline'}
 //             </p>
@@ -987,7 +987,7 @@ export default PrivateChatScreen;
 
 //       <div className={`chat-header ${theme}`}>
 //         <div className="header-user-info">
-//           <h3>Chat with {user.name}</h3>
+//           <h3>Chat with {user.username}</h3>
 //           <div className={`status ${isOnline ? 'online' : 'offline'}`}>
 //             {isOnline ? 'Online' : 'Offline'}
 //             {remoteIsTyping && isOnline && ' • Typing...'}
