@@ -498,9 +498,219 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         <button onClick={onClose}>✕</button>
       </div>
 
-      {/* Rest of the component remains the same */}
-    </div>
-  );
+      {/* Mobile Tabs */}
+      <div className={`mobile-tabs ${theme}`}>
+        <button 
+          className={`tab-button ${activeTab === 'participants' ? 'active' : ''} ${theme}`}
+          onClick={() => setActiveTab('participants')}
+        >
+          <FaUserFriends /> Participants
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'chat' ? 'active' : ''} ${theme}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          <FaPaperPlane /> Chat
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'info' ? 'active' : ''} ${theme}`}
+          onClick={() => setActiveTab('info')}
+        >
+          <FaInfoCircle /> Info
+        </button>
+      </div>
+
+      <div className="chat-layout">
+        {/* Participants Section */}
+        <div className={`participants-section ${theme} ${activeTab === 'participants' ? 'mobile-active' : ''}`}>
+          <div className="section-header">
+            <FaUserFriends className="section-icon" />
+            <h4>Participants ({participants.length})</h4>
+          </div>
+          {loadingParticipants ? (
+            <div className="loading-participants">Loading participants...</div>
+            ) : (
+            <div className="participants-list">
+              {participants
+              .filter((user) => parseInt(user.id) !== parseInt(currentUserId))
+              .map(user => (
+                <div 
+                  key={user.id} 
+                  className="participant-card"
+                  onClick={() => onOpenPrivateChat(user)}
+                >
+                  <div className="participant-avatar">
+                    {user.avatar ? (
+                      <img className="user-avatar" src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user?.avatar??"/uploads/avatar/default-avatar.png"}`} alt={user.username} />
+                    ) : (
+                      <div className="avatar-placeholder">
+                        {user.username?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                    )}
+                    <span className={`status-bubble ${user.online ? 'online' : 'offline'}`} />
+                  </div>
+                  <div className="participant-info">
+                    <span className="participant-name">{user.username || 'Unknown User'}</span>
+                    <span className="participant-status">
+                      {user.online ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                  <FaPaperPlane className="message-icon" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Main Chat Area */}
+        <div className={`chat-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
+          <div className="attendance-buttons">
+            <button 
+              className={`attendance-btn present ${theme}`}
+              onClick={() => {
+                setAttendees(a => a + 1);
+                if (window.navigator.vibrate) window.navigator.vibrate(50);
+              }}
+            >
+              <span role="img" aria-label="Present">👍</span> 
+              Present <span className="count">({attendees})</span>
+            </button>
+            
+            <button 
+              className={`attendance-btn absent ${theme}`}
+              onClick={() => {
+                setAttendees(a => Math.max(0, a - 1));
+                if (window.navigator.vibrate) window.navigator.vibrate(50);
+              }}
+            >
+              <span role="img" aria-label="Absent">👎</span> 
+              Absent
+            </button>
+          </div>
+          <div className="messages-container">
+            {isLoading ? (
+              <div className="loading-messages">Loading messages...</div>
+            ) : (
+              messages.map(msg => (
+                <div 
+                key={msg.id || msg.tempId} 
+                className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
+              >
+                {renderMessageContent(msg)}
+                <div className="message-time">
+                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <span className="message-status">
+                    {msg.isPending ? (
+                      <FaSpinner className="spinner" />
+                    ) : (
+                      <FaCheck className="check-icon" />
+                    )}
+                  </span>
+                </div>
+              </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {mediaFiles.length > 0 && (
+            <MediaPreview 
+              mediaFiles={mediaFiles}
+              onRemove={(index) => {
+                const newFiles = [...mediaFiles];
+                newFiles.splice(index, 1);
+                setMediaFiles(newFiles);
+              }}
+              uploadProgress={uploadProgress}
+            />
+          )}
+
+          {uploadError && (
+            <div className="upload-error">
+              {uploadError}
+              <button onClick={() => setUploadError(null)}>×</button>
+            </div>
+          )}
+
+          <div className="message-input">
+            <button 
+              className={`emoji-btn ${theme}`}
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <FaSmile />
+            </button>
+            {showEmojiPicker && (
+              <div className="emoji-picker">
+                <EmojiPicker onEmojiClick={(e) => {
+                  setMessage(m => m + e.emoji);
+                  setShowEmojiPicker(false);
+                }} />
+              </div>
+            )}
+            <MediaControls 
+              onFileChange={handleFileChange}
+              theme={theme}
+            />
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                handleTyping(!!e.target.value);
+              }}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              onFocus={() => handleTyping(true)}
+              onBlur={() => handleTyping(false)}
+              placeholder="Type a message..."
+              className={theme}
+            />
+            <button 
+              onClick={handleSendMessage} 
+              className={`send-button ${theme}`}
+              disabled={isSending || isUploading}
+            >
+              {isSending || isUploading ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
+            </button>
+          </div>
+        </div>
+
+        {/* Club Info Section */}
+        <div className={`info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
+          <div className="section-header">
+            <FaInfoCircle className="section-icon" />
+            <h4>Club Details</h4>
+          </div>
+          <div className="info-card">
+            <div className="club-header">
+              <h3>{room.name}</h3>
+              <div className="attendees-count">
+                <span role="img" aria-label="attendees">👥</span> {attendees} going
+              </div>
+            </div>
+            
+            <div className="info-item">
+              <span className="info-label">📍 Location:</span>
+              <span className="info-value">{room.location || 'Unknown'}</span>
+            </div>
+            
+            <div className="info-item">
+              <span className="info-label">🕒 Hours:</span>
+              <span className="info-value">{room.hours || 'Not specified'}</span>
+            </div>
+            
+            <div className="info-item">
+              <span className="info-label">📅 Events:</span>
+              <span className="info-value">Weekly meetups</span>
+            </div>
+            
+            <div className="club-description">
+              {room.description || 'Join our vibrant community for great experiences!'}
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+      );
 };
 export default ClubChatScreen;
 // ***********************
