@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-    const Message = sequelize.define('Message', {
+    const message = sequelize.define('message', {
       id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -24,16 +24,19 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
+    },
+    {
+      tableName: 'messages', // Explicitly set the table name to lowercase
     });
   
-    Message.associate = (models) => {
-      Message.belongsTo(models.User, { foreignKey: 'senderId' });
+    message.associate = (models) => {
+      message.belongsTo(models.User, { foreignKey: 'senderId' });
     };
   
-    return Message;
+    return message;
   };
 
-// CREATE TABLE Messages (
+// CREATE TABLE messages (
 //   id INT AUTO_INCREMENT PRIMARY KEY,
 //   content TEXT NOT NULL,
 //   type ENUM('text', 'image', 'video', 'audio', 'file', 'location', 'sticker', 'gif') DEFAULT 'text',
