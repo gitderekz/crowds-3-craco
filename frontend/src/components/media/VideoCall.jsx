@@ -1,8 +1,7 @@
-// frontend/src/components/media/VideoCall.jsx (updated)
 import React, { useEffect, useRef, useState, useContext } from 'react';
+import 'webrtc-adapter';
 import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
 import Peer from 'simple-peer';
-import io from 'socket.io-client';
 import { SocketContext } from '../../App';
 import './VideoCall.css';
 
@@ -19,6 +18,13 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   const remoteVideosRef = useRef([]);
   const socket = useContext(SocketContext);
   const callStartedRef = useRef(false);
+
+  // Check if media devices are available
+  const checkMediaDevices = () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Media devices API not available');
+    }
+  };
 
   const handleOffer = (peerId, offer) => {
     socket.emit('call-offer', {
@@ -104,10 +110,16 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   useEffect(() => {
     const initCall = async () => {
       try {
-        // Get user media
+        // Check media devices first
+        checkMediaDevices();
+        
+        // Get user media with error handling
         const stream = await navigator.mediaDevices.getUserMedia({
           video: callType === 'video',
           audio: true
+        }).catch(err => {
+          console.error('Media access error:', err);
+          throw new Error('Could not access camera/microphone. Please check permissions.');
         });
         
         setLocalStream(stream);
@@ -127,7 +139,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
         callStartedRef.current = true;
       } catch (err) {
         console.error('Error initializing call:', err);
-        setError('Failed to access camera/microphone. Please check permissions.');
+        setError(err.message || 'Failed to initialize call');
         setCallStatus('failed');
       }
     };
@@ -266,6 +278,275 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 };
 
 export default VideoCall;
+// ***************************
+
+// import React, { useEffect, useRef, useState, useContext } from 'react';
+// import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+// import Peer from 'simple-peer';
+// import io from 'socket.io-client';
+// import { SocketContext } from '../../App';
+// import './VideoCall.css';
+
+// const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
+//   const [localStream, setLocalStream] = useState(null);
+//   const [remoteStreams, setRemoteStreams] = useState([]);
+//   const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
+//   const [audioEnabled, setAudioEnabled] = useState(true);
+//   const [callStatus, setCallStatus] = useState('connecting');
+//   const [error, setError] = useState(null);
+  
+//   const peersRef = useRef({});
+//   const localVideoRef = useRef(null);
+//   const remoteVideosRef = useRef([]);
+//   const socket = useContext(SocketContext);
+//   const callStartedRef = useRef(false);
+
+//   const handleOffer = (peerId, offer) => {
+//     socket.emit('call-offer', {
+//       offer,
+//       roomId,
+//       targetUserId: peerId
+//     });
+//   };
+  
+//   const handleAnswer = (peerId, answer) => {
+//     socket.emit('call-answer', {
+//       answer,
+//       roomId,
+//       targetUserId: peerId
+//     });
+//   };
+
+//   const handleICECandidate = (peerId, candidate) => {
+//     socket.emit('ice-candidate', {
+//       candidate,
+//       roomId,
+//       targetUserId: peerId
+//     });
+//   };
+
+//   const handleEndCall = () => {
+//     if (!callStartedRef.current) return;
+  
+//     Object.values(peersRef.current).forEach(peer => {
+//       peer.destroy();
+//     });
+//     peersRef.current = {};
+  
+//     if (localStream) {
+//       localStream.getTracks().forEach(track => track.stop());
+//       setLocalStream(null);
+//     }
+  
+//     socket.emit('end-call', { roomId, userId });
+//     onEndCall();
+//   };
+
+//   const createPeer = (peerId, isInitiator) => {
+//     const peer = new Peer({
+//       initiator: isInitiator,
+//       trickle: false,
+//       stream: localStream,
+//       config: {
+//         iceServers: [
+//           { urls: 'stun:stun.l.google.com:19302' },
+//           { urls: 'stun:global.stun.twilio.com:3478' }
+//         ]
+//       }
+//     });
+
+//     peer.on('signal', (data) => {
+//       if (data.type === 'offer') {
+//         handleOffer(peerId, data);
+//       } else if (data.type === 'answer') {
+//         handleAnswer(peerId, data);
+//       } else if (data.candidate) {
+//         handleICECandidate(peerId, data.candidate);
+//       }
+//     });
+
+//     peer.on('stream', (stream) => {
+//       setRemoteStreams(prev => [...prev, { peerId, stream }]);
+//     });
+
+//     peer.on('error', (err) => {
+//       console.error('Peer error:', err);
+//       setError(`Connection with ${peerId} failed`);
+//     });
+
+//     peer.on('close', () => {
+//       setRemoteStreams(prev => prev.filter(s => s.peerId !== peerId));
+//       delete peersRef.current[peerId];
+//     });
+
+//     return peer;
+//   };
+
+//   useEffect(() => {
+//     const initCall = async () => {
+//       try {
+//         // Get user media
+//         const stream = await navigator.mediaDevices.getUserMedia({
+//           video: callType === 'video',
+//           audio: true
+//         });
+        
+//         setLocalStream(stream);
+//         if (localVideoRef.current) {
+//           localVideoRef.current.srcObject = stream;
+//         }
+
+//         // Create peers for each participant
+//         otherUserIds.forEach(peerId => {
+//           if (peerId !== userId) {
+//             const isInitiator = userId < peerId;
+//             peersRef.current[peerId] = createPeer(peerId, isInitiator);
+//           }
+//         });
+
+//         setCallStatus('connected');
+//         callStartedRef.current = true;
+//       } catch (err) {
+//         console.error('Error initializing call:', err);
+//         setError('Failed to access camera/microphone. Please check permissions.');
+//         setCallStatus('failed');
+//       }
+//     };
+
+//     initCall();
+
+//     // Set up socket listeners
+//     const handleRemoteOffer = (data) => {
+//       if (data.senderId !== userId && !peersRef.current[data.senderId]) {
+//         const peer = createPeer(data.senderId, false);
+//         peer.signal(data.offer);
+//       }
+//     };
+
+//     const handleRemoteAnswer = (data) => {
+//       if (data.senderId !== userId && peersRef.current[data.senderId]) {
+//         peersRef.current[data.senderId].signal(data.answer);
+//       }
+//     };
+
+//     const handleRemoteICECandidate = (data) => {
+//       if (data.senderId !== userId && peersRef.current[data.senderId]) {
+//         peersRef.current[data.senderId].signal(data.candidate);
+//       }
+//     };
+
+//     const handleUserLeft = (leftUserId) => {
+//       if (peersRef.current[leftUserId]) {
+//         peersRef.current[leftUserId].destroy();
+//         delete peersRef.current[leftUserId];
+//         setRemoteStreams(prev => prev.filter(s => s.peerId !== leftUserId));
+//       }
+//     };
+
+//     socket.on('call-offer', handleRemoteOffer);
+//     socket.on('call-answer', handleRemoteAnswer);
+//     socket.on('ice-candidate', handleRemoteICECandidate);
+//     socket.on('user-left', handleUserLeft);
+
+//     return () => {
+//       socket.off('call-offer', handleRemoteOffer);
+//       socket.off('call-answer', handleRemoteAnswer);
+//       socket.off('ice-candidate', handleRemoteICECandidate);
+//       socket.off('user-left', handleUserLeft);
+//       handleEndCall();
+//     };
+//   }, [roomId, userId, otherUserIds, callType, socket]);
+
+//   const toggleVideo = () => {
+//     if (localStream) {
+//       const videoTrack = localStream.getVideoTracks()[0];
+//       if (videoTrack) {
+//         videoTrack.enabled = !videoTrack.enabled;
+//         setVideoEnabled(videoTrack.enabled);
+//       }
+//     }
+//   };
+
+//   const toggleAudio = () => {
+//     if (localStream) {
+//       const audioTrack = localStream.getAudioTracks()[0];
+//       if (audioTrack) {
+//         audioTrack.enabled = !audioTrack.enabled;
+//         setAudioEnabled(audioTrack.enabled);
+//       }
+//     }
+//   };
+
+//   return (
+//     <div className="video-call-overlay">
+//       <div className="video-call-container">
+//         {error && (
+//           <div className="call-error">
+//             {error}
+//             <button onClick={handleEndCall} className="close-btn">
+//               Close
+//             </button>
+//           </div>
+//         )}
+
+//         {callStatus === 'connecting' && (
+//           <div className="call-status">
+//             <div className="spinner"></div>
+//             <p>Connecting...</p>
+//           </div>
+//         )}
+
+//         <div className="video-container">
+//           {remoteStreams.map(({ peerId, stream }, index) => (
+//             <video
+//               key={peerId}
+//               ref={el => remoteVideosRef.current[index] = el}
+//               autoPlay
+//               playsInline
+//               className="remote-video"
+//               srcObject={stream}
+//             />
+//           ))}
+          
+//           {localStream && (
+//             <video
+//               ref={localVideoRef}
+//               autoPlay
+//               playsInline
+//               muted
+//               className="local-video"
+//             />
+//           )}
+//         </div>
+
+//         <div className="call-controls">
+//           <button 
+//             onClick={toggleVideo} 
+//             className={`control-btn ${videoEnabled ? '' : 'disabled'}`}
+//           >
+//             {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
+//           </button>
+          
+//           <button 
+//             onClick={toggleAudio} 
+//             className={`control-btn ${audioEnabled ? '' : 'disabled'}`}
+//           >
+//             {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
+//           </button>
+          
+//           <button 
+//             onClick={handleEndCall} 
+//             className="end-call-btn"
+//           >
+//             <FaPhoneSlash />
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default VideoCall;
 // ********************************
 
 // import React, { useEffect, useRef, useState } from 'react';
