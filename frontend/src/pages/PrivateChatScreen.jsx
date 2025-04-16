@@ -94,13 +94,19 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.name}. Accept?`);
         if (confirmCall) {
           setCallType(callData.callType);
-          setInCall(true);
           socket.emit('call-response', {
             response: 'accepted',
             callerId: callData.callerId,
             calleeId: currentUserId,
             roomId: callData.roomId
           });
+
+          // Notify caller to activate their call screen
+          socket.emit('call-accepted', {
+            roomId: callData.roomId
+          });
+
+          setInCall(true);
         } else {
           socket.emit('call-response', {
             response: 'rejected',
@@ -221,9 +227,44 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     });
   };
 
+  // ✅ NEW: Listen for 'call-accepted'
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCallAccepted = ({ roomId: acceptedRoomId }) => {
+      if (acceptedRoomId === roomId) {
+        setInCall(true);
+      }
+    };
+
+    socket.on('call-accepted', handleCallAccepted);
+
+    return () => {
+      socket.off('call-accepted', handleCallAccepted);
+    };
+  }, [socket, roomId]);
+
+  // ✅ NEW: Listen for 'call-ended'
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCallEnded = ({ roomId: endRoomId }) => {
+      if (endRoomId === roomId) {
+        setInCall(false);
+        setCallType(null);
+      }
+    };
+
+    socket.on('call-ended', handleCallEnded);
+
+    return () => {
+      socket.off('call-ended', handleCallEnded);
+    };
+  }, [socket, roomId]);
+
   const startCall = (type) => {
     setCallType(type);
-    setInCall(true);
+    // setInCall(true);
     
     socket.emit('call-notification', {
       callType: type,
@@ -236,6 +277,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const endCall = () => {
     setInCall(false);
     setCallType(null);
+    socket.emit('call-ended', { roomId });
   };
 
   const handleSendMessage = async () => {

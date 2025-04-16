@@ -823,3 +823,14 @@ USERNAME: FElly
 PASSWORD: E-ODranya
 Username: Koboko
 password: 12345
+
+Woooh! it is working now i we can see each other and talk to each other
+Now lets solve these other issues
+-i dont want to display the user id for other members but their names (user.username)
+-the call is not stable/inconsistent to handle all participants sometimes they join 3 but only 2 can see each others 
+and sometimes none see each other until the cancel and call again
+maybe you can add loading to make sure all are available
+-most of time the person who initiated the call is unable to see/connect to others, but the others can see each others. So this person needs to 
+hang up and then join the call again(pretty crazy)
+
+I really need consistency in members joining the call
