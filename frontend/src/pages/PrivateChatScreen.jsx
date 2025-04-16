@@ -1,187 +1,3 @@
-// import React, { useState, useRef, useEffect, useContext } from 'react';
-// import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, FaPhone } from 'react-icons/fa';
-// import EmojiPicker from 'emoji-picker-react';
-// import { ThemeContext } from '../App';
-
-// const PrivateChatScreen = ({ user, onClose }) => {
-//   const { theme } = useContext(ThemeContext);
-//   const [message, setMessage] = useState('');
-//   const [messages, setMessages] = useState([]);
-//   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-//   const messagesEndRef = useRef(null);
-//   const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'info'
-
-//   const handleSendMessage = () => {
-//     if (message.trim()) {
-//       setMessages([...messages, {
-//         id: Date.now(),
-//         text: message,
-//         sender: 'You',
-//         timestamp: new Date().toLocaleTimeString()
-//       }]);
-//       setMessage('');
-//     }
-//   };
-
-//   useEffect(() => {
-//     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-//   }, [messages]);
-
-//   return (
-//     <div className={`private-chat-container ${theme}`}>
-//       <div className={`chat-header ${theme}`}>
-//         <h3>Chat with {user.name}</h3>
-//         <button onClick={onClose}>✕</button>
-//       </div>
-      
-//       {/* Mobile Tabs */}
-//       <div className={`mobile-tabs ${theme}`}>
-//         <button 
-//           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
-//           onClick={() => setActiveTab('chat')}
-//         >
-//           <FaPaperPlane /> Chat
-//         </button>
-//         <button 
-//           className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
-//           onClick={() => setActiveTab('info')}
-//         >
-//           <FaUser /> Info
-//         </button>
-//       </div>
-
-//       <div className="chat-layout">
-//         {/* Messages Section - now conditionally rendered */}
-//         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
-//           <div className="messages-container">
-//             {messages.map(msg => (
-//               <div 
-//                 key={msg.id} 
-//                 className={`message ${msg.sender === 'You' ? 'sent' : 'received'} ${theme}`}
-//               >
-//                 <div className="message-content">{msg.text}</div>
-//                 <div className="message-time">{msg.timestamp}</div>
-//               </div>
-//             ))}
-//             <div ref={messagesEndRef} />
-//           </div>
-
-//           <div className="message-input">
-//             <button 
-//               className={`emoji-btn ${theme}`}
-//               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-//             >
-//               <FaSmile />
-//             </button>
-//             {showEmojiPicker && (
-//               <div className="emoji-picker">
-//                 <EmojiPicker onEmojiClick={(e) => {
-//                   setMessage(m => m + e.emoji);
-//                   setShowEmojiPicker(false);
-//                 }} />
-//               </div>
-//             )}
-//             <input
-//               type="text"
-//               value={message}
-//               onChange={(e) => setMessage(e.target.value)}
-//               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-//               placeholder="Type a message..."
-//               className={theme}
-//             />
-//             <div className="media-buttons">
-//               <button className={theme}><FaImage /></button>
-//               <button className={theme}><FaVideo /></button>
-//               <button className={theme}><FaMusic /></button>
-//             </div>
-//             <button 
-//               onClick={handleSendMessage} 
-//               className={`send-button ${theme}`}
-//             >
-//               <FaPaperPlane />
-//             </button>
-//           </div>
-//         </div>
-
-//         {/* User Info Section - now conditionally rendered */}
-//         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
-//             <div className="user-avatar">
-//                 {user.avatar ? (
-//                 <img src={user.avatar} alt={user.name} />
-//                 ) : (
-//                 <FaUser size={80} />
-//                 )}
-//             </div>
-//             <h4>{user.name}</h4>
-//             <p className={`status ${user.online ? 'online' : 'offline'}`}>
-//                 {user.online ? 'Online' : 'Offline'}
-//             </p>
-            
-//             <div className="user-details">
-//                 <div className="detail-item">
-//                 <span className="detail-label">Last Seen:</span>
-//                 <span className="detail-value">
-//                     {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
-//                 </span>
-//                 </div>
-                
-//                 <div className="detail-item">
-//                 <span className="detail-label">Member Since:</span>
-//                 <span className="detail-value">
-//                     {new Date(user.joinDate).toLocaleDateString()}
-//                 </span>
-//                 </div>
-                
-//                 <div className="detail-item">
-//                 <span className="detail-label">Common Groups:</span>
-//                 <span className="detail-value">
-//                     {user.commonGroups?.length || 0}
-//                 </span>
-//                 </div>
-//             </div>
-            
-//             <div className="user-actions">
-//                 <button className={`action-btn ${theme}`}>
-//                 <FaVideo /> Video Call
-//                 </button>
-//                 <button className={`action-btn ${theme}`}>
-//                 <FaPhone /> Voice Call
-//                 </button>
-//             </div>
-            
-//             <div className="shared-media">
-//                 <h5>Shared Media</h5>
-//                 <div className="media-grid">
-//                 {user.sharedMedia?.slice(0, 4).map((media, index) => (
-//                     <div key={index} className="media-thumbnail">
-//                     {media.type === 'image' ? (
-//                         <img src={media.url} alt={`Shared ${index}`} />
-//                     ) : media.type === 'video' ? (
-//                         <FaVideo />
-//                     ) : (
-//                         <FaFile />
-//                     )}
-//                     </div>
-//                 ))}
-//                 {(!user.sharedMedia || user.sharedMedia.length === 0) && (
-//                     <p className="no-media">No shared media yet</p>
-//                 )}
-//                 </div>
-//             </div>
-            
-//             <div className="user-bio">
-//                 <h5>About</h5>
-//                 <p>{user.bio || 'No bio available'}</p>
-//             </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default PrivateChatScreen;
-
-// *******************************************
 
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import axios from 'axios';
@@ -189,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, 
   FaPhone, FaVideoSlash,FaCheck, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
-import { ThemeContext } from '../App';
+import { ThemeContext, SocketContext, NotificationContext } from '../App';
 import io from 'socket.io-client';
 import useSound from '../hooks/useSound';
 import VideoCall from '../components/media/VideoCall';
@@ -198,7 +14,8 @@ import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
 
 const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
-  const { theme } = useContext(ThemeContext);
+  const { theme, socket } = useContext(ThemeContext);
+  const { setIncomingCall } = useContext(NotificationContext);
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -240,6 +57,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const [pendingMessages, setPendingMessages] = useState([]);
   const [tempMessages, setTempMessages] = useState({});
   const tempMessagesRef = useRef({});
+  const [ringtone, setRingtone] = useState(null);
 
   useEffect(()=>{
     if (!token) {
@@ -471,9 +289,71 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     scrollToBottom();
   }, [messages]);
 
+
+  // Handle incoming calls
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingCall = (callData) => {
+      if (callData.callerId === user.id) {
+        // Stop any existing ringtone
+        if (ringtone) {
+          ringtone.pause();
+          ringtone.currentTime = 0;
+        }
+        
+        // Play new ringtone
+        const newRingtone = new Audio('/sounds/ringtone.mp3');
+        newRingtone.loop = true;
+        newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
+        setRingtone(newRingtone);
+        
+        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.name}. Accept?`);
+        if (confirmCall) {
+          setCallType(callData.callType);
+          setInCall(true);
+          socket.emit('call-response', {
+            response: 'accepted',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        } else {
+          socket.emit('call-response', {
+            response: 'rejected',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        }
+        newRingtone.pause();
+        setRingtone(null);
+        setIncomingCall(null);
+      }
+    };
+
+    socket.on('incoming-call', handleIncomingCall);
+
+    return () => {
+      if (ringtone) {
+        ringtone.pause();
+        setRingtone(null);
+      }
+      socket.off('incoming-call', handleIncomingCall);
+    };
+  }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
+
   const startCall = (type) => {
     setCallType(type);
     setInCall(true);
+    
+    // Notify the other user
+    socket.emit('call-notification', {
+      callType: type,
+      callerId: currentUserId,
+      calleeIds: [user.id],
+      roomId: roomId
+    });
   };
 
   const endCall = () => {
@@ -487,7 +367,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         <VideoCall 
           roomId={roomId}
           userId={currentUserId}
-          otherUserId={user.id}
+          otherUserIds={[user.id]}
           callType={callType}
           onEndCall={endCall}
         />
@@ -705,6 +585,191 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 };
 
 export default PrivateChatScreen;
+// ************************************
+
+// import React, { useState, useRef, useEffect, useContext } from 'react';
+// import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, FaPhone } from 'react-icons/fa';
+// import EmojiPicker from 'emoji-picker-react';
+// import { ThemeContext } from '../App';
+
+// const PrivateChatScreen = ({ user, onClose }) => {
+//   const { theme } = useContext(ThemeContext);
+//   const [message, setMessage] = useState('');
+//   const [messages, setMessages] = useState([]);
+//   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+//   const messagesEndRef = useRef(null);
+//   const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'info'
+
+//   const handleSendMessage = () => {
+//     if (message.trim()) {
+//       setMessages([...messages, {
+//         id: Date.now(),
+//         text: message,
+//         sender: 'You',
+//         timestamp: new Date().toLocaleTimeString()
+//       }]);
+//       setMessage('');
+//     }
+//   };
+
+//   useEffect(() => {
+//     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+//   }, [messages]);
+
+//   return (
+//     <div className={`private-chat-container ${theme}`}>
+//       <div className={`chat-header ${theme}`}>
+//         <h3>Chat with {user.name}</h3>
+//         <button onClick={onClose}>✕</button>
+//       </div>
+      
+//       {/* Mobile Tabs */}
+//       <div className={`mobile-tabs ${theme}`}>
+//         <button 
+//           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
+//           onClick={() => setActiveTab('chat')}
+//         >
+//           <FaPaperPlane /> Chat
+//         </button>
+//         <button 
+//           className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+//           onClick={() => setActiveTab('info')}
+//         >
+//           <FaUser /> Info
+//         </button>
+//       </div>
+
+//       <div className="chat-layout">
+//         {/* Messages Section - now conditionally rendered */}
+//         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
+//           <div className="messages-container">
+//             {messages.map(msg => (
+//               <div 
+//                 key={msg.id} 
+//                 className={`message ${msg.sender === 'You' ? 'sent' : 'received'} ${theme}`}
+//               >
+//                 <div className="message-content">{msg.text}</div>
+//                 <div className="message-time">{msg.timestamp}</div>
+//               </div>
+//             ))}
+//             <div ref={messagesEndRef} />
+//           </div>
+
+//           <div className="message-input">
+//             <button 
+//               className={`emoji-btn ${theme}`}
+//               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+//             >
+//               <FaSmile />
+//             </button>
+//             {showEmojiPicker && (
+//               <div className="emoji-picker">
+//                 <EmojiPicker onEmojiClick={(e) => {
+//                   setMessage(m => m + e.emoji);
+//                   setShowEmojiPicker(false);
+//                 }} />
+//               </div>
+//             )}
+//             <input
+//               type="text"
+//               value={message}
+//               onChange={(e) => setMessage(e.target.value)}
+//               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+//               placeholder="Type a message..."
+//               className={theme}
+//             />
+//             <div className="media-buttons">
+//               <button className={theme}><FaImage /></button>
+//               <button className={theme}><FaVideo /></button>
+//               <button className={theme}><FaMusic /></button>
+//             </div>
+//             <button 
+//               onClick={handleSendMessage} 
+//               className={`send-button ${theme}`}
+//             >
+//               <FaPaperPlane />
+//             </button>
+//           </div>
+//         </div>
+
+//         {/* User Info Section - now conditionally rendered */}
+//         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
+//             <div className="user-avatar">
+//                 {user.avatar ? (
+//                 <img src={user.avatar} alt={user.name} />
+//                 ) : (
+//                 <FaUser size={80} />
+//                 )}
+//             </div>
+//             <h4>{user.name}</h4>
+//             <p className={`status ${user.online ? 'online' : 'offline'}`}>
+//                 {user.online ? 'Online' : 'Offline'}
+//             </p>
+            
+//             <div className="user-details">
+//                 <div className="detail-item">
+//                 <span className="detail-label">Last Seen:</span>
+//                 <span className="detail-value">
+//                     {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
+//                 </span>
+//                 </div>
+                
+//                 <div className="detail-item">
+//                 <span className="detail-label">Member Since:</span>
+//                 <span className="detail-value">
+//                     {new Date(user.joinDate).toLocaleDateString()}
+//                 </span>
+//                 </div>
+                
+//                 <div className="detail-item">
+//                 <span className="detail-label">Common Groups:</span>
+//                 <span className="detail-value">
+//                     {user.commonGroups?.length || 0}
+//                 </span>
+//                 </div>
+//             </div>
+            
+//             <div className="user-actions">
+//                 <button className={`action-btn ${theme}`}>
+//                 <FaVideo /> Video Call
+//                 </button>
+//                 <button className={`action-btn ${theme}`}>
+//                 <FaPhone /> Voice Call
+//                 </button>
+//             </div>
+            
+//             <div className="shared-media">
+//                 <h5>Shared Media</h5>
+//                 <div className="media-grid">
+//                 {user.sharedMedia?.slice(0, 4).map((media, index) => (
+//                     <div key={index} className="media-thumbnail">
+//                     {media.type === 'image' ? (
+//                         <img src={media.url} alt={`Shared ${index}`} />
+//                     ) : media.type === 'video' ? (
+//                         <FaVideo />
+//                     ) : (
+//                         <FaFile />
+//                     )}
+//                     </div>
+//                 ))}
+//                 {(!user.sharedMedia || user.sharedMedia.length === 0) && (
+//                     <p className="no-media">No shared media yet</p>
+//                 )}
+//                 </div>
+//             </div>
+            
+//             <div className="user-bio">
+//                 <h5>About</h5>
+//                 <p>{user.bio || 'No bio available'}</p>
+//             </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default PrivateChatScreen;
+
 
 // ****************************************************
 

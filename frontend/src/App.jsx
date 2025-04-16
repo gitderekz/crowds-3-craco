@@ -1,4 +1,5 @@
-import React, { useState, useEffect} from 'react';
+// frontend/src/app.jsx (updated)
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Header from './components/Header';
@@ -13,16 +14,19 @@ import './theme.css';
 import SponsorRow from './components/SponsorRow';
 import { api, publicApi, getRefreshToken, setupTokenRefresh } from './services/authService';
 import useAuth from './hooks/useAuth';
+import io from 'socket.io-client';
+import NotificationBell from './components/NotificationBell';
 
 export const ThemeContext = React.createContext();
 export const AuthContext = React.createContext();
+export const SocketContext = React.createContext();
+export const NotificationContext = React.createContext();
 
-// Add ProtectedRoute component
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a spinner
+    return <div>Loading...</div>;
   }
 
   if (!isAuthenticated) {
@@ -36,7 +40,6 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   return children;
 };
 
-
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [photos, setPhotos] = useState([]);
@@ -45,39 +48,85 @@ function App() {
   const [activeCategoryName, setActiveCategoryName] = useState('');
   const { isAuthenticated, user } = useAuth();
   const [sponsorPhotos, setSponsorPhotos] = useState([]);
+  const [socket, setSocket] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [incomingCall, setIncomingCall] = useState(null);
 
-  useEffect(()=>{
-    // Call this when your app initializes
-    console.log('isAuthenticated',isAuthenticated);
+  // Initialize socket connection
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      const newSocket = io(process.env.REACT_APP_SOCKET_SERVER, {
+        withCredentials: true,
+        transports: ['websocket']
+      });
+      
+      newSocket.on('connect', () => {
+        console.log('Socket connected');
+        newSocket.emit('authenticate', user.id);
+      });
+      
+      newSocket.on('new-notification', (notification) => {
+        setNotifications(prev => [...prev, notification]);
+        setUnreadCount(prev => prev + 1);
+        // Play notification sound
+        const audio = new Audio('/sounds/notification.mp3');
+        audio.play().catch(e => console.log('Audio play failed:', e));
+      });
+      
+      newSocket.on('incoming-call', (callData) => {
+        setIncomingCall(callData);
+        // Play ringtone
+        const ringtone = new Audio('/sounds/ringtone.mp3');
+        ringtone.loop = true;
+        ringtone.play().catch(e => console.log('Ringtone play failed:', e));
+      });
+      
+      newSocket.on('user-online', ({ userId }) => {
+        // Update online status in your state management
+        console.log(`User ${userId} is online`);
+      });
+      
+      newSocket.on('user-offline', ({ userId }) => {
+        // Update offline status in your state management
+        console.log(`User ${userId} is offline`);
+      });
+      
+      setSocket(newSocket);
+      
+      return () => {
+        newSocket.disconnect();
+      };
+    }
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
     if (isAuthenticated) {
       setupTokenRefresh();
     }
-  })
+  }, [isAuthenticated]);
 
   const fetchPhotos = async () => {
     try {
-      // const response = await axios.get(`${process.env.REACT_APP_API_URL}/photos/home`);
       const response = await api.get(`/photos/home`);
       setPhotos(response.data);
-      console.log('photos',response.data);
-      
       fetchSponsorPhotos();
     } catch (error) {
       console.error('Error fetching photos:', error);
     }
   };
+
   const fetchSponsorPhotos = async () => {
     try {
-      // const response = await axios.get(`${process.env.REACT_APP_API_URL}/photos/sponsor`);
       const response = await api.get(`/photos/sponsor`);
       setSponsorPhotos(response.data);
     } catch (error) {
       console.error('Error fetching sponsor photos:', error);
     }
   };
+
   useEffect(() => {
     fetchPhotos();
-    // fetchSponsorPhotos();
   }, []);
 
   const toggleTheme = () => {
@@ -90,50 +139,63 @@ function App() {
     setSearchQuery(query);
   };
 
-  // Filter photos based on the search query
   const filteredPhotos = photos.filter((photo) =>
     photo.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const markNotificationsAsRead = () => {
+    setUnreadCount(0);
+  };
+
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <AuthContext.Provider value={{ isAuthenticated, user }}>
-        <div className={`app ${theme}`}>
-          <Router>
-            <Header 
-              onSearch={handleSearch} 
-              setIsSearching={setIsSearching} 
-              setActiveCategoryName={setActiveCategoryName} 
-            />
-            <div className="main-content">
-              <SponsorRow loadedSponsorPhotos={sponsorPhotos}/>
-              <Routes>
-                <Route path="/" element={<Home photos={filteredPhotos} />} />
-                <Route path="/photos" element={<Photos filteredPhotos={isSearching?filteredPhotos:null} isSearching={isSearching} activeCategoryName={activeCategoryName} />} />
-                <Route 
-                  path="/upload" 
-                  element={
-                    <ProtectedRoute requiredRole="publisher" >
-                      <Upload fetchPhotos={fetchPhotos} fetchSponsorPhotos={fetchSponsorPhotos} />
-                    </ProtectedRoute>
-                  } 
+        <SocketContext.Provider value={socket}>
+          <NotificationContext.Provider value={{ 
+            notifications, 
+            unreadCount,
+            markNotificationsAsRead,
+            incomingCall,
+            setIncomingCall
+          }}>
+            <div className={`app ${theme}`}>
+              <Router>
+                <Header 
+                  onSearch={handleSearch} 
+                  setIsSearching={setIsSearching} 
+                  setActiveCategoryName={setActiveCategoryName} 
                 />
-              <Route path="/users" 
-                element={
-                  //<ProtectedRoute requiredRole="publisher">
-                    <Users />
-                  //</ProtectedRoute>
-                } 
-              />
-              <Route path="/register" element={<Register />} />
-              </Routes>
+                <div className="main-content">
+                  <SponsorRow loadedSponsorPhotos={sponsorPhotos}/>
+                  {/* <NotificationBell /> */}
+                  <Routes>
+                    <Route path="/" element={<Home photos={filteredPhotos} />} />
+                    <Route path="/photos" element={<Photos filteredPhotos={isSearching?filteredPhotos:null} isSearching={isSearching} activeCategoryName={activeCategoryName} />} />
+                    <Route 
+                      path="/upload" 
+                      element={
+                        <ProtectedRoute requiredRole="publisher" >
+                          <Upload fetchPhotos={fetchPhotos} fetchSponsorPhotos={fetchSponsorPhotos} />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route path="/users" 
+                      element={
+                        <ProtectedRoute requiredRole="publisher">
+                          <Users />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route path="/register" element={<Register />} />
+                  </Routes>
+                </div>
+                <Footer />
+              </Router>
             </div>
-            <Footer />
-          </Router>
-        </div>
+          </NotificationContext.Provider>
+        </SocketContext.Provider>
       </AuthContext.Provider>
     </ThemeContext.Provider>
   );
 }
-
 export default App;

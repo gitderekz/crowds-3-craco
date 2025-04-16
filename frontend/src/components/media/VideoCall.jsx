@@ -1,3 +1,548 @@
+// frontend/src/components/media/VideoCall.jsx (updated)
+import React, { useEffect, useRef, useState, useContext } from 'react';
+import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+import Peer from 'simple-peer';
+import io from 'socket.io-client';
+import { SocketContext } from '../../App';
+import './VideoCall.css';
+
+const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStreams, setRemoteStreams] = useState([]);
+  const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [callStatus, setCallStatus] = useState('connecting');
+  const [error, setError] = useState(null);
+  
+  const peersRef = useRef({});
+  const localVideoRef = useRef(null);
+  const remoteVideosRef = useRef([]);
+  const socket = useContext(SocketContext);
+  const callStartedRef = useRef(false);
+
+  const handleOffer = (peerId, offer) => {
+    socket.emit('call-offer', {
+      offer,
+      roomId,
+      targetUserId: peerId
+    });
+  };
+  
+  const handleAnswer = (peerId, answer) => {
+    socket.emit('call-answer', {
+      answer,
+      roomId,
+      targetUserId: peerId
+    });
+  };
+
+  const handleICECandidate = (peerId, candidate) => {
+    socket.emit('ice-candidate', {
+      candidate,
+      roomId,
+      targetUserId: peerId
+    });
+  };
+
+  const handleEndCall = () => {
+    if (!callStartedRef.current) return;
+  
+    Object.values(peersRef.current).forEach(peer => {
+      peer.destroy();
+    });
+    peersRef.current = {};
+  
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+  
+    socket.emit('end-call', { roomId, userId });
+    onEndCall();
+  };
+
+  const createPeer = (peerId, isInitiator) => {
+    const peer = new Peer({
+      initiator: isInitiator,
+      trickle: false,
+      stream: localStream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
+    });
+
+    peer.on('signal', (data) => {
+      if (data.type === 'offer') {
+        handleOffer(peerId, data);
+      } else if (data.type === 'answer') {
+        handleAnswer(peerId, data);
+      } else if (data.candidate) {
+        handleICECandidate(peerId, data.candidate);
+      }
+    });
+
+    peer.on('stream', (stream) => {
+      setRemoteStreams(prev => [...prev, { peerId, stream }]);
+    });
+
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      setError(`Connection with ${peerId} failed`);
+    });
+
+    peer.on('close', () => {
+      setRemoteStreams(prev => prev.filter(s => s.peerId !== peerId));
+      delete peersRef.current[peerId];
+    });
+
+    return peer;
+  };
+
+  useEffect(() => {
+    const initCall = async () => {
+      try {
+        // Get user media
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: callType === 'video',
+          audio: true
+        });
+        
+        setLocalStream(stream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+
+        // Create peers for each participant
+        otherUserIds.forEach(peerId => {
+          if (peerId !== userId) {
+            const isInitiator = userId < peerId;
+            peersRef.current[peerId] = createPeer(peerId, isInitiator);
+          }
+        });
+
+        setCallStatus('connected');
+        callStartedRef.current = true;
+      } catch (err) {
+        console.error('Error initializing call:', err);
+        setError('Failed to access camera/microphone. Please check permissions.');
+        setCallStatus('failed');
+      }
+    };
+
+    initCall();
+
+    // Set up socket listeners
+    const handleRemoteOffer = (data) => {
+      if (data.senderId !== userId && !peersRef.current[data.senderId]) {
+        const peer = createPeer(data.senderId, false);
+        peer.signal(data.offer);
+      }
+    };
+
+    const handleRemoteAnswer = (data) => {
+      if (data.senderId !== userId && peersRef.current[data.senderId]) {
+        peersRef.current[data.senderId].signal(data.answer);
+      }
+    };
+
+    const handleRemoteICECandidate = (data) => {
+      if (data.senderId !== userId && peersRef.current[data.senderId]) {
+        peersRef.current[data.senderId].signal(data.candidate);
+      }
+    };
+
+    const handleUserLeft = (leftUserId) => {
+      if (peersRef.current[leftUserId]) {
+        peersRef.current[leftUserId].destroy();
+        delete peersRef.current[leftUserId];
+        setRemoteStreams(prev => prev.filter(s => s.peerId !== leftUserId));
+      }
+    };
+
+    socket.on('call-offer', handleRemoteOffer);
+    socket.on('call-answer', handleRemoteAnswer);
+    socket.on('ice-candidate', handleRemoteICECandidate);
+    socket.on('user-left', handleUserLeft);
+
+    return () => {
+      socket.off('call-offer', handleRemoteOffer);
+      socket.off('call-answer', handleRemoteAnswer);
+      socket.off('ice-candidate', handleRemoteICECandidate);
+      socket.off('user-left', handleUserLeft);
+      handleEndCall();
+    };
+  }, [roomId, userId, otherUserIds, callType, socket]);
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setVideoEnabled(videoTrack.enabled);
+      }
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setAudioEnabled(audioTrack.enabled);
+      }
+    }
+  };
+
+  return (
+    <div className="video-call-overlay">
+      <div className="video-call-container">
+        {error && (
+          <div className="call-error">
+            {error}
+            <button onClick={handleEndCall} className="close-btn">
+              Close
+            </button>
+          </div>
+        )}
+
+        {callStatus === 'connecting' && (
+          <div className="call-status">
+            <div className="spinner"></div>
+            <p>Connecting...</p>
+          </div>
+        )}
+
+        <div className="video-container">
+          {remoteStreams.map(({ peerId, stream }, index) => (
+            <video
+              key={peerId}
+              ref={el => remoteVideosRef.current[index] = el}
+              autoPlay
+              playsInline
+              className="remote-video"
+              srcObject={stream}
+            />
+          ))}
+          
+          {localStream && (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="local-video"
+            />
+          )}
+        </div>
+
+        <div className="call-controls">
+          <button 
+            onClick={toggleVideo} 
+            className={`control-btn ${videoEnabled ? '' : 'disabled'}`}
+          >
+            {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
+          </button>
+          
+          <button 
+            onClick={toggleAudio} 
+            className={`control-btn ${audioEnabled ? '' : 'disabled'}`}
+          >
+            {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
+          </button>
+          
+          <button 
+            onClick={handleEndCall} 
+            className="end-call-btn"
+          >
+            <FaPhoneSlash />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default VideoCall;
+// ********************************
+
+// import React, { useEffect, useRef, useState } from 'react';
+// import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+// import Peer from 'simple-peer';
+// import io from 'socket.io-client';
+// import './VideoCall.css'; // Create this CSS file for styling
+
+// const VideoCall = ({ roomId, userId, otherUserId, callType, onEndCall }) => {
+//   const [localStream, setLocalStream] = useState(null);
+//   const [remoteStream, setRemoteStream] = useState(null);
+//   const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
+//   const [audioEnabled, setAudioEnabled] = useState(true);
+//   const [callStatus, setCallStatus] = useState('connecting');
+//   const [error, setError] = useState(null);
+  
+//   const peerRef = useRef(null);
+//   const localVideoRef = useRef(null);
+//   const remoteVideoRef = useRef(null);
+//   const socketRef = useRef(null);
+//   const callStartedRef = useRef(false);
+
+  
+
+//   const handleOffer = ({ offer, senderId }) => {
+//     console.log("Imeitika..");
+    
+//     if (senderId === otherUserId && peerRef.current) {
+//       peerRef.current.signal(offer);
+//     }
+//   };
+  
+//   const handleEndCall = () => {
+//     if (!callStartedRef.current) return;
+  
+//     if (peerRef.current) {
+//       peerRef.current.destroy();
+//       peerRef.current = null;
+//     }
+  
+//     if (localStream) {
+//       localStream.getTracks().forEach(track => track.stop());
+//       setLocalStream(null);
+//     }
+  
+//     if (socketRef.current?.connected) {
+//       socketRef.current.disconnect();
+//     }
+  
+//     socketRef.current = null;
+  
+//     onEndCall();
+//   };
+  
+  
+
+//   const handleAnswer = ({ answer, senderId }) => {
+//     if (senderId === otherUserId && peerRef.current) {
+//       peerRef.current.signal(answer);
+//     }
+//   };
+
+//   const handleICECandidate = ({ candidate, senderId }) => {
+//     if (senderId === otherUserId && peerRef.current) {
+//       peerRef.current.signal(candidate);
+//     }
+//   };
+
+//   const handleCallRejected = () => {
+//     setError('Call was rejected by the other user');
+//     setCallStatus('rejected');
+//   };
+
+//   const handleUserLeft = () => {
+//     setError('Other user has left the call');
+//     setCallStatus('ended');
+//   };
+
+//   // Initialize media stream and WebRTC connection
+//   useEffect(() => {
+//     const initCall = async () => {
+//       try {
+//         // Initialize socket connection
+//         socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+//           transports: ['websocket'],
+//           query: { userId, roomId }
+//         });
+
+//         // Get user media
+//         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+//           setError('Camera/microphone access not supported.');
+//           setCallStatus('failed');
+//           return;
+//         }        
+//         const stream = await navigator.mediaDevices.getUserMedia({
+//           video: callType === 'video',
+//           audio: true
+//         });
+        
+//         setLocalStream(stream);
+//         if (localVideoRef.current) {
+//           localVideoRef.current.srcObject = stream;
+//         }
+
+//         // Create peer connection
+//         peerRef.current = new Peer({
+//           initiator: userId < otherUserId, // Simple way to determine who initiates
+//           trickle: false,
+//           stream,
+//           config: {
+//             iceServers: [
+//               { urls: 'stun:stun.l.google.com:19302' },
+//               { urls: 'stun:global.stun.twilio.com:3478' }
+//             ]
+//           }
+//         });
+
+//         // Set up peer event handlers
+//         peerRef.current.on('signal', (data) => {
+//           if (data.type === 'offer') {
+//             socketRef.current.emit('call-offer', {
+//               offer: data,
+//               roomId,
+//               targetUserId: otherUserId
+//             });
+//           } else if (data.type === 'answer') {
+//             socketRef.current.emit('call-answer', {
+//               answer: data,
+//               roomId,
+//               targetUserId: otherUserId
+//             });
+//           }
+//         });
+
+//         peerRef.current.on('stream', (stream) => {
+//           setRemoteStream(stream);
+//           if (remoteVideoRef.current) {
+//             remoteVideoRef.current.srcObject = stream;
+//           }
+//           setCallStatus('connected');
+//           callStartedRef.current = true;  // ✅ set to true
+//         });
+        
+
+//         peerRef.current.on('error', (err) => {
+//           console.error('Peer error:', err);
+//           setError('Connection failed. Please try again.');
+//           setCallStatus('failed');
+//         });
+
+//         peerRef.current.on('close', () => {
+//           handleEndCall();
+//         });
+
+//         // if (socketRef.current) {
+//           // Set up socket event handlers
+//           socketRef.current.on('call-offer', handleOffer);
+//           socketRef.current.on('call-answer', handleAnswer);
+//           socketRef.current.on('ice-candidate', handleICECandidate);
+//           socketRef.current.on('call-rejected', handleCallRejected);
+//           socketRef.current.on('user-left', handleUserLeft);
+//         // }
+
+//         // Join the call room
+//         // socketRef.current.emit('join-call-room', { roomId, userId });
+//         socketRef.current.on('connect', () => {
+//           console.log('Socket connected join-call-room:', socketRef.current.id);
+//           socketRef.current.emit('join-call-room', { roomId, userId });
+//         });
+
+//       } catch (err) {
+//         console.error('Error initializing call:', err);
+//         setError('Failed to access camera/microphone. Please check permissions.');
+//         setCallStatus('failed');
+//       }
+//     };
+
+//     initCall();
+
+//     return () => {
+//       handleEndCall();
+//     };
+//   }, [roomId, userId, otherUserId, callType, handleEndCall]);
+
+//   const toggleVideo = () => {
+//     if (localStream) {
+//       const videoTrack = localStream.getVideoTracks()[0];
+//       if (videoTrack) {
+//         videoTrack.enabled = !videoTrack.enabled;
+//         setVideoEnabled(videoTrack.enabled);
+//       }
+//     }
+//   };
+
+//   const toggleAudio = () => {
+//     if (localStream) {
+//       const audioTrack = localStream.getAudioTracks()[0];
+//       if (audioTrack) {
+//         audioTrack.enabled = !audioTrack.enabled;
+//         setAudioEnabled(audioTrack.enabled);
+//       }
+//     }
+//   };
+
+//   return (
+//     <div className="video-call-overlay">
+//       <div className="video-call-container">
+//         {error && (
+//           <div className="call-error">
+//             {error}
+//             <button onClick={handleEndCall} className="close-btn">
+//               Close
+//             </button>
+//           </div>
+//         )}
+
+//         {callStatus === 'connecting' && (
+//           <div className="call-status">
+//             <div className="spinner"></div>
+//             <p>Connecting...</p>
+//           </div>
+//         )}
+
+//         <div className="video-container">
+//           {remoteStream && (
+//             <video
+//               ref={remoteVideoRef}
+//               autoPlay
+//               playsInline
+//               className="remote-video"
+//             />
+//           )}
+          
+//           {localStream && (
+//             <video
+//               ref={localVideoRef}
+//               autoPlay
+//               playsInline
+//               muted
+//               className="local-video"
+//             />
+//           )}
+//         </div>
+
+//         <div className="call-controls">
+//           <button 
+//             onClick={toggleVideo} 
+//             className={`control-btn ${videoEnabled ? '' : 'disabled'}`}
+//             aria-label={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
+//           >
+//             {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
+//           </button>
+          
+//           <button 
+//             onClick={toggleAudio} 
+//             className={`control-btn ${audioEnabled ? '' : 'disabled'}`}
+//             aria-label={audioEnabled ? 'Mute microphone' : 'Unmute microphone'}
+//           >
+//             {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
+//           </button>
+          
+//           <button 
+//             onClick={handleEndCall} 
+//             className="end-call-btn"
+//             aria-label="End call"
+//           >
+//             <FaPhoneSlash />
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default VideoCall;
+// // ******************************
+
 // import { useEffect, useRef, useState } from 'react';
 // import Peer from 'simple-peer';
 
@@ -212,277 +757,3 @@
 // };
 
 // export default VideoCall;
-
-import React, { useEffect, useRef, useState } from 'react';
-import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
-import Peer from 'simple-peer';
-import io from 'socket.io-client';
-import './VideoCall.css'; // Create this CSS file for styling
-
-const VideoCall = ({ roomId, userId, otherUserId, callType, onEndCall }) => {
-  const [localStream, setLocalStream] = useState(null);
-  const [remoteStream, setRemoteStream] = useState(null);
-  const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [callStatus, setCallStatus] = useState('connecting');
-  const [error, setError] = useState(null);
-  
-  const peerRef = useRef(null);
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const socketRef = useRef(null);
-  const callStartedRef = useRef(false);
-
-  
-
-  const handleOffer = ({ offer, senderId }) => {
-    console.log("Imeitika..");
-    
-    if (senderId === otherUserId && peerRef.current) {
-      peerRef.current.signal(offer);
-    }
-  };
-  
-  const handleEndCall = () => {
-    if (!callStartedRef.current) return;
-  
-    if (peerRef.current) {
-      peerRef.current.destroy();
-      peerRef.current = null;
-    }
-  
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-  
-    if (socketRef.current?.connected) {
-      socketRef.current.disconnect();
-    }
-  
-    socketRef.current = null;
-  
-    onEndCall();
-  };
-  
-  
-
-  const handleAnswer = ({ answer, senderId }) => {
-    if (senderId === otherUserId && peerRef.current) {
-      peerRef.current.signal(answer);
-    }
-  };
-
-  const handleICECandidate = ({ candidate, senderId }) => {
-    if (senderId === otherUserId && peerRef.current) {
-      peerRef.current.signal(candidate);
-    }
-  };
-
-  const handleCallRejected = () => {
-    setError('Call was rejected by the other user');
-    setCallStatus('rejected');
-  };
-
-  const handleUserLeft = () => {
-    setError('Other user has left the call');
-    setCallStatus('ended');
-  };
-
-  // Initialize media stream and WebRTC connection
-  useEffect(() => {
-    const initCall = async () => {
-      try {
-        // Initialize socket connection
-        socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
-          transports: ['websocket'],
-          query: { userId, roomId }
-        });
-
-        // Get user media
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          setError('Camera/microphone access not supported.');
-          setCallStatus('failed');
-          return;
-        }        
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: callType === 'video',
-          audio: true
-        });
-        
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        // Create peer connection
-        peerRef.current = new Peer({
-          initiator: userId < otherUserId, // Simple way to determine who initiates
-          trickle: false,
-          stream,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-          }
-        });
-
-        // Set up peer event handlers
-        peerRef.current.on('signal', (data) => {
-          if (data.type === 'offer') {
-            socketRef.current.emit('call-offer', {
-              offer: data,
-              roomId,
-              targetUserId: otherUserId
-            });
-          } else if (data.type === 'answer') {
-            socketRef.current.emit('call-answer', {
-              answer: data,
-              roomId,
-              targetUserId: otherUserId
-            });
-          }
-        });
-
-        peerRef.current.on('stream', (stream) => {
-          setRemoteStream(stream);
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = stream;
-          }
-          setCallStatus('connected');
-          callStartedRef.current = true;  // ✅ set to true
-        });
-        
-
-        peerRef.current.on('error', (err) => {
-          console.error('Peer error:', err);
-          setError('Connection failed. Please try again.');
-          setCallStatus('failed');
-        });
-
-        peerRef.current.on('close', () => {
-          handleEndCall();
-        });
-
-        // if (socketRef.current) {
-          // Set up socket event handlers
-          socketRef.current.on('call-offer', handleOffer);
-          socketRef.current.on('call-answer', handleAnswer);
-          socketRef.current.on('ice-candidate', handleICECandidate);
-          socketRef.current.on('call-rejected', handleCallRejected);
-          socketRef.current.on('user-left', handleUserLeft);
-        // }
-
-        // Join the call room
-        // socketRef.current.emit('join-call-room', { roomId, userId });
-        socketRef.current.on('connect', () => {
-          console.log('Socket connected join-call-room:', socketRef.current.id);
-          socketRef.current.emit('join-call-room', { roomId, userId });
-        });
-
-      } catch (err) {
-        console.error('Error initializing call:', err);
-        setError('Failed to access camera/microphone. Please check permissions.');
-        setCallStatus('failed');
-      }
-    };
-
-    initCall();
-
-    return () => {
-      handleEndCall();
-    };
-  }, [roomId, userId, otherUserId, callType, handleEndCall]);
-
-  const toggleVideo = () => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setVideoEnabled(videoTrack.enabled);
-      }
-    }
-  };
-
-  const toggleAudio = () => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setAudioEnabled(audioTrack.enabled);
-      }
-    }
-  };
-
-  return (
-    <div className="video-call-overlay">
-      <div className="video-call-container">
-        {error && (
-          <div className="call-error">
-            {error}
-            <button onClick={handleEndCall} className="close-btn">
-              Close
-            </button>
-          </div>
-        )}
-
-        {callStatus === 'connecting' && (
-          <div className="call-status">
-            <div className="spinner"></div>
-            <p>Connecting...</p>
-          </div>
-        )}
-
-        <div className="video-container">
-          {remoteStream && (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="remote-video"
-            />
-          )}
-          
-          {localStream && (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="local-video"
-            />
-          )}
-        </div>
-
-        <div className="call-controls">
-          <button 
-            onClick={toggleVideo} 
-            className={`control-btn ${videoEnabled ? '' : 'disabled'}`}
-            aria-label={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
-          >
-            {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
-          </button>
-          
-          <button 
-            onClick={toggleAudio} 
-            className={`control-btn ${audioEnabled ? '' : 'disabled'}`}
-            aria-label={audioEnabled ? 'Mute microphone' : 'Unmute microphone'}
-          >
-            {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
-          </button>
-          
-          <button 
-            onClick={handleEndCall} 
-            className="end-call-btn"
-            aria-label="End call"
-          >
-            <FaPhoneSlash />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default VideoCall;

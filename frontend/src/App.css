@@ -63,6 +63,34 @@
     gap: 20px;
   }
   
+  .header-left-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .notification-bell-container {
+    position: relative;
+    /* margin-left: 10px; */
+  }
+  
+  /* Adjust the notification dropdown positioning */
+  .notification-bell-container .notification-dropdown {
+    right: 0;
+    left: auto;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .header-left-section {
+      gap: 5px;
+    }
+    
+    .notification-bell-container {
+      margin-left: 5px;
+    }
+  }
+
   .home-button {
     display: flex;
     flex-direction: row;
@@ -91,7 +119,9 @@
   
   .search-bar {
     display: flex;
-    gap: 20px;
+    align-items: center;
+    gap: 15px;
+    flex-grow: 1;
     flex: 1;
   }
   

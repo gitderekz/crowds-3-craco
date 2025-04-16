@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ThemeContext } from '../App';
+import { ThemeContext, NotificationContext } from '../App';
 import ThemeToggle from './ThemeToggle';
 import CategoryFilter from './CategoryFilter';
 import { FaHome, FaUpload, FaUser, FaUsers, FaPalette, FaCog } from 'react-icons/fa';
@@ -10,9 +10,11 @@ import RegisterClientModal from './RegisterClientModal'; // Import the new Regis
 import axios from 'axios';
 import { api, clearTokens } from '../services/authService';
 import useAuth from '../hooks/useAuth';
+import NotificationBell from './NotificationBell'; // Import NotificationBell
 
 const Header = ({ onSearch, setIsSearching, setActiveCategoryName }) => {
   const { theme } = useContext(ThemeContext);
+  const { notifications, unreadCount } = useContext(NotificationContext); // Get notification context
   const { isAuthenticated, user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -177,12 +179,21 @@ const Header = ({ onSearch, setIsSearching, setActiveCategoryName }) => {
     <header className={`header ${theme}`}>
       <div className="header-top">
         <div className="search-bar">
-          <Link
-            onClick={(e) => handleLinkClick(e, '/')}
-            className={`home-button ${theme}`}
-          >
-            <span>Home</span> <FaHome className="fa-home" />
-          </Link>
+          <div className="header-left-section">
+            <Link
+              onClick={(e) => handleLinkClick(e, '/')}
+              className={`home-button ${theme}`}
+            >
+              <span>Home</span> <FaHome className="fa-home" />
+            </Link>
+            
+            {/* Notification Bell placed right after Home button */}
+            {isAuthenticated && (
+              <div className="notification-bell-container">
+                <NotificationBell />
+              </div>
+            )}
+          </div>
           <input
             ref={searchInputRef} // <-- Attach ref to input
             type="text"
