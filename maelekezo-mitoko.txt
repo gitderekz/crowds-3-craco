@@ -249,7 +249,7 @@ const VideoCall = ({ roomId, userId, onClose }) => {
   const socketRef = useRef();
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:5000');
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`);
     
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(stream => {
@@ -318,7 +318,7 @@ const VideoCall = ({ roomId, userId, otherUserId, callType, onEndCall }) => {
 
   useEffect(() => {
     // Initialize socket connection
-    socketRef.current = io('http://localhost:5000', {
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
       withCredentials: true,
       transports: ['websocket']
     });
@@ -613,6 +613,8 @@ vintage.com
 connection.com
 placetobe.com
 >tarsias
+
+edit & delete
 
 #4fd1c5; /* Neon Blue for light mode */,
 #4CAF50,

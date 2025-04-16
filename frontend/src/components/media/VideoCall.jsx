@@ -9,7 +9,7 @@
 //   const socketRef = useRef();
 
 //   useEffect(() => {
-//     socketRef.current = io('http://localhost:5000');
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`);
     
 //     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 //       .then(stream => {
@@ -77,7 +77,7 @@
 
 //   useEffect(() => {
 //     // Initialize socket connection
-//     socketRef.current = io('http://localhost:5000', {
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket']
 //     });

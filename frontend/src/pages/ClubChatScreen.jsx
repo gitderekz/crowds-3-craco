@@ -169,7 +169,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   // Socket connection and event handlers
   useEffect(() => {
     console.log('Initializing socket connection for club chat...');
-    socketRef.current = io('http://localhost:5000', {
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
       withCredentials: true,
       transports: ['websocket']
     });
@@ -648,7 +648,7 @@ export default ClubChatScreen;
 
 //   useEffect(() => {
 //     // Connect to WebSocket
-//     socketRef.current = io('http://localhost:5000');
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`);
     
 //     // Join room
 //     socketRef.current.emit('joinRoom', { 
@@ -979,7 +979,7 @@ export default ClubChatScreen;
 //     };
 //     loadMessages();
 
-//     socketRef.current = io('http://localhost:5000', {
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket']
 //     });
@@ -1367,7 +1367,7 @@ export default ClubChatScreen;
 //       }
 //     };
 
-//     socketRef.current = io('http://localhost:5000', {
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket'],
 //       reconnectionAttempts: 5,
@@ -1772,7 +1772,7 @@ export default ClubChatScreen;
 
 //     console.log('Initializing socket connection for club chat...');
     
-//     const socket = io('http://localhost:5000', {
+//     const socket = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket'],
 //       reconnectionAttempts: 5,
@@ -2275,7 +2275,7 @@ export default ClubChatScreen;
 //   // Initialize socket connection with retry logic
 //   const initializeSocket = () => {
 //     console.log('Initializing socket connection...');
-//     const socket = io('http://localhost:5000', {
+//     const socket = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket'],
 //       reconnectionAttempts: 5,

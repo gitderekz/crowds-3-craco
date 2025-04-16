@@ -250,7 +250,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   // Initialize socket connection
   useEffect(() => {
     console.log('Initializing socket connection...'); // Add this
-    socketRef.current = io('http://localhost:5000', {
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
       withCredentials: true,
       transports: ['websocket']
     });
@@ -752,7 +752,7 @@ export default PrivateChatScreen;
 
 //   // Initialize socket connection
 //   useEffect(() => {
-//     socketRef.current = io('http://localhost:5000', {
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket']
 //     });
