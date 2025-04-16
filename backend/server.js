@@ -131,7 +131,14 @@ const connectedUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
-
+  
+  socket.on('signal', ({ signal, to, from, roomId }) => {
+    if (connectedUsers.has(to)) {
+      io.to(connectedUsers.get(to)).emit('signal', { signal, from });
+      console.log(`Signal relayed from ${from} to ${to}`);
+    }
+  });
+  
   // Handle user authentication and store user info
   socket.on('authenticate', (userId) => {
     if (userId) {

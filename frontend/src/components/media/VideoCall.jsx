@@ -16,19 +16,13 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   const localVideoRef = useRef(null);
   const remoteVideosRef = useRef([]);
   const socket = useContext(SocketContext);
-  const callStartedRef = useRef(false);
 
-  // Initialize local media stream
   const initLocalStream = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: callType === 'video',
-        audio: true,
+        audio: true
       });
-
-      console.log('Local stream obtained:', stream);
-      console.log('Tracks:', stream.getTracks());
-
       setLocalStream(stream);
       return stream;
     } catch (err) {
@@ -39,107 +33,64 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
     }
   };
 
-  const createPeer = (peerId, isInitiator, stream) => {
+  const createPeer = (peerId, initiator, stream) => {
     const peer = new Peer({
-      initiator: isInitiator,
+      initiator,
       trickle: false,
-      stream: stream,
+      stream,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' },
-        ],
-      },
-    });
-
-    peer.on('signal', (data) => {
-      if (data.type === 'offer') {
-        socket.emit('call-offer', {
-          offer: data,
-          roomId,
-          targetUserId: peerId,
-        });
-      } else if (data.type === 'answer') {
-        socket.emit('call-answer', {
-          answer: data,
-          roomId,
-          targetUserId: peerId,
-        });
-      } else if (data.candidate) {
-        socket.emit('ice-candidate', {
-          candidate: data,
-          roomId,
-          targetUserId: peerId,
-        });
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
       }
     });
 
-    peer.on('stream', (remoteStream) => {
-      setRemoteStreams((prev) => {
-        if (!prev.some((stream) => stream.peerId === peerId)) {
+    peer.on('signal', signal => {
+      socket.emit('signal', {
+        signal,
+        to: peerId,
+        from: userId,
+        roomId
+      });
+    });
+
+    peer.on('stream', remoteStream => {
+      setRemoteStreams(prev => {
+        if (!prev.some(r => r.peerId === peerId)) {
           return [...prev, { peerId, stream: remoteStream }];
         }
         return prev;
       });
     });
 
-    peer.on('error', (err) => {
+    peer.on('error', err => {
       console.error('Peer error:', err);
-      setError(`Connection with ${peerId} failed`);
     });
 
     peer.on('close', () => {
-      setRemoteStreams((prev) => prev.filter((s) => s.peerId !== peerId));
       delete peersRef.current[peerId];
+      setRemoteStreams(prev => prev.filter(s => s.peerId !== peerId));
     });
 
     return peer;
   };
 
-  const handleRemoteOffer = async (data) => {
-    if (data.senderId !== userId && !peersRef.current[data.senderId]) {
-      try {
-        const stream = localStream || (await initLocalStream());
-        const peer = createPeer(data.senderId, false, stream);
-        peer.signal(data.offer);
-        peersRef.current[data.senderId] = peer;
-      } catch (err) {
-        console.error('Error handling remote offer:', err);
-      }
+  const handleSignal = ({ signal, from }) => {
+    if (!peersRef.current[from]) {
+      const peer = createPeer(from, false, localStream);
+      peersRef.current[from] = peer;
     }
-  };
-
-  const handleRemoteAnswer = (data) => {
-    if (peersRef.current[data.senderId]) {
-      peersRef.current[data.senderId].signal(data.answer);
-    }
-  };
-
-  const handleRemoteICECandidate = (data) => {
-    if (peersRef.current[data.senderId]) {
-      peersRef.current[data.senderId].signal(data.candidate);
-    }
-  };
-
-  const handleUserLeft = (leftUserId) => {
-    if (peersRef.current[leftUserId]) {
-      peersRef.current[leftUserId].destroy();
-      delete peersRef.current[leftUserId];
-      setRemoteStreams((prev) => prev.filter((s) => s.peerId !== leftUserId));
-    }
+    peersRef.current[from].signal(signal);
   };
 
   const handleEndCall = () => {
-    Object.values(peersRef.current).forEach((peer) => {
-      peer.destroy();
-    });
+    Object.values(peersRef.current).forEach(peer => peer.destroy());
     peersRef.current = {};
-
     if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
+      localStream.getTracks().forEach(track => track.stop());
       setLocalStream(null);
     }
-
     socket.emit('end-call', { roomId, userId });
     onEndCall();
   };
@@ -164,65 +115,36 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
     }
   };
 
-  // Attach local stream to local video element
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.play().catch((err) =>
-        console.error("Local video play error:", err)
-      );
-    }
-  }, [localStream]);
-
-  useEffect(() => {
-    remoteStreams.forEach(({ stream }, index) => {
-      const videoElement = remoteVideosRef.current[index];
-      if (videoElement && stream && videoElement.srcObject !== stream) {
-        videoElement.srcObject = stream;
-        videoElement.play().catch((err) =>
-          console.error("Remote video play error:", err)
-        );
-      }
-    });
-  }, [remoteStreams]);
-  
-
-  // Main call setup
-  useEffect(() => {
-    const initCall = async () => {
+    const setupCall = async () => {
       try {
         const stream = await initLocalStream();
+        socket.emit('join-call-room', { roomId, userId });
 
-        otherUserIds.forEach((peerId) => {
-          if (peerId !== userId && !peersRef.current[peerId]) {
+        otherUserIds.forEach(peerId => {
+          if (peerId !== userId) {
             const isInitiator = userId < peerId;
-            peersRef.current[peerId] = createPeer(peerId, isInitiator, stream);
+            const peer = createPeer(peerId, isInitiator, stream);
+            peersRef.current[peerId] = peer;
           }
         });
 
         setCallStatus('connected');
-        callStartedRef.current = true;
       } catch (err) {
-        console.error('Call initialization failed:', err);
+        console.error('Error setting up call:', err);
         setCallStatus('failed');
       }
     };
 
-    initCall();
+    setupCall();
 
-    socket.on('call-offer', handleRemoteOffer);
-    socket.on('call-answer', handleRemoteAnswer);
-    socket.on('ice-candidate', handleRemoteICECandidate);
-    socket.on('user-left', handleUserLeft);
+    socket.on('signal', handleSignal);
 
     return () => {
-      socket.off('call-offer', handleRemoteOffer);
-      socket.off('call-answer', handleRemoteAnswer);
-      socket.off('ice-candidate', handleRemoteICECandidate);
-      socket.off('user-left', handleUserLeft);
+      socket.off('signal', handleSignal);
       handleEndCall();
     };
-  }, [roomId, userId, otherUserIds, callType]);
+  }, [roomId, userId, otherUserIds]);
 
   return (
     <div className="video-call-overlay">
@@ -230,9 +152,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
         {error && (
           <div className="call-error">
             {error}
-            <button onClick={handleEndCall} className="close-btn">
-              Close
-            </button>
+            <button onClick={handleEndCall} className="close-btn">Close</button>
           </div>
         )}
 
@@ -247,10 +167,15 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
           {remoteStreams.map(({ peerId, stream }, index) => (
             <div key={peerId} className="remote-video-container">
               <video
-                ref={(el) => (remoteVideosRef.current[index] = el)}
+                ref={el => {
+                  if (el) {
+                    el.srcObject = stream;
+                    el.play().catch(err => console.error('Video play error:', err));
+                  }
+                  remoteVideosRef.current[index] = el;
+                }}
                 autoPlay
                 playsInline
-                muted={false}
                 className="remote-video"
               />
               <div className="remote-user-info">User {peerId}</div>
@@ -260,12 +185,17 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
           {localStream && (
             <div className="local-video-container">
               <video
-                ref={localVideoRef}
+                ref={el => {
+                  localVideoRef.current = el;
+                  if (el) {
+                    el.srcObject = localStream;
+                    el.play().catch(e => console.error("Video play error:", e));
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted
                 className="local-video"
-                style={{ backgroundColor: 'black' }}
               />
               <div className="local-user-info">You</div>
             </div>
@@ -273,20 +203,12 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
         </div>
 
         <div className="call-controls">
-          <button
-            onClick={toggleVideo}
-            className={`control-btn ${videoEnabled ? '' : 'disabled'}`}
-          >
+          <button onClick={toggleVideo} className={`control-btn ${videoEnabled ? '' : 'disabled'}`}>
             {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
           </button>
-
-          <button
-            onClick={toggleAudio}
-            className={`control-btn ${audioEnabled ? '' : 'disabled'}`}
-          >
+          <button onClick={toggleAudio} className={`control-btn ${audioEnabled ? '' : 'disabled'}`}>
             {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
           </button>
-
           <button onClick={handleEndCall} className="end-call-btn">
             <FaPhoneSlash />
           </button>
