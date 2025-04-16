@@ -174,6 +174,19 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
     }
   }, [localStream]);
 
+  useEffect(() => {
+    remoteStreams.forEach(({ stream }, index) => {
+      const videoElement = remoteVideosRef.current[index];
+      if (videoElement && stream && videoElement.srcObject !== stream) {
+        videoElement.srcObject = stream;
+        videoElement.play().catch((err) =>
+          console.error("Remote video play error:", err)
+        );
+      }
+    });
+  }, [remoteStreams]);
+  
+
   // Main call setup
   useEffect(() => {
     const initCall = async () => {
@@ -237,6 +250,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
                 ref={(el) => (remoteVideosRef.current[index] = el)}
                 autoPlay
                 playsInline
+                muted={false}
                 className="remote-video"
               />
               <div className="remote-user-info">User {peerId}</div>
