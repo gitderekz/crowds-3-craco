@@ -373,6 +373,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
           userId={currentUserId}
           otherUserIds={[user.id]}
           callType={callType}
+          setCallType={setCallType}
           onEndCall={endCall}
         />
       )}

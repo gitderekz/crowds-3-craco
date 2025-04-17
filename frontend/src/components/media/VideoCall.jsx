@@ -1,65 +1,87 @@
 // src/components/media/VideoCall.jsx
 import React, { useEffect, useRef, useState, useContext } from 'react';
-import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash, FaSyncAlt } from 'react-icons/fa';
 import Peer from 'simple-peer';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import { SocketContext } from '../../App';
 import { useVideoCall } from '../../contexts/VideoCallContext';
 import './VideoCall.css';
 
-const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
-  const { callTechnology } = useVideoCall();
+const VideoCall = ({ roomId, userId, otherUserIds, callType, setCallType, onEndCall }) => {
+  const { callTechnology, toggleCallTechnology } = useVideoCall();
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState([]);
   const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [callStatus, setCallStatus] = useState('connecting');
   const [error, setError] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [selectedDevice, setSelectedDevice] = useState('default');
+  const [retryCount, setRetryCount] = useState(0);
 
-  // Refs for WebRTC
+  // Refs
   const peersRef = useRef({});
   const localVideoRef = useRef(null);
   const remoteVideosRef = useRef([]);
-  
-  // Refs for Agora
   const agoraClientRef = useRef(null);
   const agoraLocalStreamRef = useRef(null);
   const socket = useContext(SocketContext);
 
+  // Get available devices
+  useEffect(() => {
+    const getDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setDevices(devices.filter(d => d.kind === 'videoinput'));
+      } catch (err) {
+        console.error('Error enumerating devices:', err);
+      }
+    };
+    getDevices();
+  }, []);
+
   // Common functions
-  const toggleVideo = () => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setVideoEnabled(videoTrack.enabled);
-        
-        // For Agora, update the published track
-        if (callTechnology === 'agora' && agoraClientRef.current) {
+  const toggleVideo = async () => {
+    if (!localStream) return;
+
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      setVideoEnabled(videoTrack.enabled);
+
+      if (callTechnology === 'agora' && agoraClientRef.current) {
+        try {
           if (videoTrack.enabled) {
-            agoraClientRef.current.publish(videoTrack);
+            await agoraClientRef.current.publish(videoTrack);
           } else {
-            agoraClientRef.current.unpublish(videoTrack);
+            await agoraClientRef.current.unpublish(videoTrack);
           }
+        } catch (err) {
+          console.error('Error toggling video:', err);
+          setError('Failed to toggle video. Please try again.');
         }
       }
     }
   };
 
-  const toggleAudio = () => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setAudioEnabled(audioTrack.enabled);
-        
-        // For Agora, update the published track
-        if (callTechnology === 'agora' && agoraClientRef.current) {
+  const toggleAudio = async () => {
+    if (!localStream) return;
+
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      setAudioEnabled(audioTrack.enabled);
+
+      if (callTechnology === 'agora' && agoraClientRef.current) {
+        try {
           if (audioTrack.enabled) {
-            agoraClientRef.current.publish(audioTrack);
+            await agoraClientRef.current.publish(audioTrack);
           } else {
-            agoraClientRef.current.unpublish(audioTrack);
+            await agoraClientRef.current.unpublish(audioTrack);
           }
+        } catch (err) {
+          console.error('Error toggling audio:', err);
+          setError('Failed to toggle audio. Please try again.');
         }
       }
     }
@@ -91,7 +113,9 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   const initWebRTC = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: callType === 'video',
+        video: callType === 'video' ? { 
+          deviceId: selectedDevice === 'default' ? undefined : selectedDevice 
+        } : false,
         audio: true
       });
       setLocalStream(stream);
@@ -109,8 +133,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
       setCallStatus('connected');
     } catch (err) {
       console.error('Error setting up WebRTC call:', err);
-      setCallStatus('failed');
-      setError('Could not access camera/microphone. Please check permissions.');
+      handleMediaError(err);
     }
   };
 
@@ -147,6 +170,15 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 
     peer.on('error', err => {
       console.error('Peer error:', err);
+      setError('Connection error. Trying to reconnect...');
+      setTimeout(() => {
+        if (peersRef.current[peerId]) {
+          peersRef.current[peerId].destroy();
+          delete peersRef.current[peerId];
+          const newPeer = createPeer(peerId, initiator, stream);
+          peersRef.current[peerId] = newPeer;
+        }
+      }, 2000);
     });
 
     peer.on('close', () => {
@@ -168,27 +200,44 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   // Agora implementation
   const initAgora = async () => {
     try {
-      // Initialize Agora client
       const APP_ID = process.env.REACT_APP_AGORA_APP_ID;
+      if (!APP_ID) {
+        throw new Error('Agora App ID is not configured');
+      }
+
       agoraClientRef.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
       
-      // Get local stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: callType === 'video',
-        audio: true
-      });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: callType === 'video' ? { 
+            deviceId: selectedDevice === 'default' ? undefined : selectedDevice 
+          } : false,
+          audio: true
+        });
+      } catch (err) {
+        handleMediaError(err);
+        return;
+      }
+
       setLocalStream(stream);
       agoraLocalStreamRef.current = stream;
       
-      // Join the channel
       const token = await getAgoraToken(roomId, userId);
       await agoraClientRef.current.join(APP_ID, roomId, token, userId);
       
-      // Publish local stream
-      const [audioTrack, videoTrack] = stream.getTracks();
-      await agoraClientRef.current.publish([audioTrack, videoTrack]);
+      const tracks = stream.getTracks();
+      const audioTrack = tracks.find(track => track.kind === 'audio');
+      const videoTrack = tracks.find(track => track.kind === 'video');
+
+      try {
+        if (audioTrack) await agoraClientRef.current.publish(audioTrack);
+        if (videoTrack && callType === 'video') await agoraClientRef.current.publish(videoTrack);
+      } catch (publishError) {
+        console.error('Error publishing tracks:', publishError);
+        throw new Error('Failed to start streaming. Please try again.');
+      }
       
-      // Set up event listeners
       agoraClientRef.current.on('user-published', handleAgoraUserPublished);
       agoraClientRef.current.on('user-unpublished', handleAgoraUserUnpublished);
       agoraClientRef.current.on('user-left', handleAgoraUserLeft);
@@ -196,14 +245,13 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
       setCallStatus('connected');
     } catch (err) {
       console.error('Error setting up Agora call:', err);
-      setCallStatus('failed');
-      setError('Failed to initialize video call. Please try again.');
+      handleMediaError(err);
     }
   };
 
   const getAgoraToken = async (channelName, uid) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/agora/agora-token`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/agora-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -220,17 +268,21 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   };
 
   const handleAgoraUserPublished = async (user, mediaType) => {
-    await agoraClientRef.current.subscribe(user, mediaType);
-    
-    if (mediaType === 'video') {
-      setRemoteStreams(prev => [...prev, {
-        peerId: user.uid,
-        stream: user.videoTrack
-      }]);
-    }
-    
-    if (mediaType === 'audio') {
-      user.audioTrack.play();
+    try {
+      await agoraClientRef.current.subscribe(user, mediaType);
+      
+      if (mediaType === 'video') {
+        setRemoteStreams(prev => [...prev, {
+          peerId: user.uid,
+          stream: user.videoTrack
+        }]);
+      }
+      
+      if (mediaType === 'audio') {
+        user.audioTrack.play();
+      }
+    } catch (err) {
+      console.error('Error handling published user:', err);
     }
   };
 
@@ -242,10 +294,60 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
     setRemoteStreams(prev => prev.filter(s => s.peerId !== user.uid));
   };
 
+  // Error handling
+  const handleMediaError = (err) => {
+    let errorMessage = 'Failed to initialize video call.';
+    
+    if (err.name === 'NotAllowedError') {
+      errorMessage = 'Permission denied. Please allow camera/microphone access in your browser settings.';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      errorMessage = 'No camera/microphone found. Please check your devices.';
+    } else if (err.name === 'NotReadableError') {
+      errorMessage = 'Camera/microphone is already in use by another application.';
+    } else if (err.message.includes('Agora App ID')) {
+      errorMessage = 'Video call service is not properly configured.';
+    } else if (err.message.includes('token')) {
+      errorMessage = 'Failed to authenticate with video service.';
+    }
+
+    setCallStatus('failed');
+    setError(errorMessage);
+
+    // Clean up partial initialization
+    if (agoraClientRef.current) {
+      agoraClientRef.current.leave();
+      agoraClientRef.current = null;
+    }
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+
+    // Offer fallback to audio only if video failed
+    if (err.message.includes('video') && callType === 'video' && retryCount < 2) {
+      setTimeout(() => {
+        setError(`${errorMessage} Trying audio only...`);
+        setCallType('audio');
+        setRetryCount(retryCount + 1);
+        callTechnology === 'agora' ? initAgora() : initWebRTC();
+      }, 2000);
+    } else if (retryCount < 3) {
+      setTimeout(() => {
+        setError(`${errorMessage} Retrying... (${retryCount + 1}/3)`);
+        setRetryCount(retryCount + 1);
+        callTechnology === 'agora' ? initAgora() : initWebRTC();
+      }, 3000);
+    }
+  };
+
   // Initialize call based on technology
   useEffect(() => {
     const setupCall = async () => {
       try {
+        setCallStatus('connecting');
+        setError(null);
+        setRetryCount(0);
+
         if (callTechnology === 'webrtc') {
           await initWebRTC();
           socket.on('signal', handleWebRTCSignal);
@@ -254,7 +356,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
         }
       } catch (err) {
         console.error('Error setting up call:', err);
-        setCallStatus('failed');
+        handleMediaError(err);
       }
     };
 
@@ -264,15 +366,32 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
       socket.off('signal', handleWebRTCSignal);
       handleEndCall();
     };
-  }, [callTechnology]);
+  }, [callTechnology, callType, selectedDevice]);
 
   return (
     <div className="video-call-overlay">
       <div className="video-call-container">
         {error && (
           <div className="call-error">
-            {error}
-            <button onClick={handleEndCall} className="close-btn">Close</button>
+            <div className="error-message">{error}</div>
+            <div className="error-actions">
+              <button 
+                onClick={() => {
+                  setError(null);
+                  setCallStatus('connecting');
+                  callTechnology === 'agora' ? initAgora() : initWebRTC();
+                }}
+                className="retry-btn"
+              >
+                <FaSyncAlt /> Retry
+              </button>
+              <button 
+                onClick={handleEndCall} 
+                className="close-btn"
+              >
+                <FaPhoneSlash /> Close
+              </button>
+            </div>
           </div>
         )}
 
@@ -339,6 +458,22 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
         </div>
 
         <div className="call-controls">
+          {devices.length > 1 && (
+            <select
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              className="device-selector"
+              disabled={callStatus !== 'connecting'}
+            >
+              <option value="default">Default Camera</option>
+              {devices.map(device => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `Camera ${device.deviceId.slice(0, 5)}`}
+                </option>
+              ))}
+            </select>
+          )}
+
           <button onClick={toggleVideo} className={`control-btn ${videoEnabled ? '' : 'disabled'}`}>
             {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
           </button>
@@ -347,6 +482,16 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
           </button>
           <button onClick={handleEndCall} className="end-call-btn">
             <FaPhoneSlash />
+          </button>
+        </div>
+
+        <div className="tech-toggle-container">
+          <button 
+            onClick={toggleCallTechnology}
+            className="tech-toggle-btn"
+            disabled={callStatus === 'connecting'}
+          >
+            Switch to {callTechnology === 'webrtc' ? 'Agora' : 'WebRTC'}
           </button>
         </div>
       </div>

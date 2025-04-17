@@ -477,6 +477,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
           userId={currentUserId}
           otherUserIds={participants.map(p => p.id)}
           callType={callType}
+          setCallType={setCallType}
           onEndCall={endGroupCall}
         />
       )}
