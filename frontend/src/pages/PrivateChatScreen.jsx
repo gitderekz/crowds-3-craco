@@ -35,7 +35,8 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     playCall, 
     playError,
     playForeground,
-    playSent
+    playSent,
+    getSound
   } = useSound();
   const {
     mediaFiles,
@@ -59,6 +60,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const [tempMessages, setTempMessages] = useState({});
   const tempMessagesRef = useRef({});
   const [ringtone, setRingtone] = useState(null);
+  const callSound = getSound('call');
 
   useEffect(()=>{
     if (!token) {
@@ -82,7 +84,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         // Play call sound using your custom hook
         playCall();
         // Store the sound (if you need to stop it later)
-        setRingtone(sounds.current.call); // Optional, only if you want to pause it later
+        setRingtone(callSound); // Optional, only if you want to pause it later
             
         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
         if (confirmCall) {

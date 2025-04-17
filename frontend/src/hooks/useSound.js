@@ -61,7 +61,8 @@ const useSound = () => {
     setVolume: (type, volume) => {
       const audio = sounds.current[type];
       if (audio) audio.volume = Math.min(1, Math.max(0, volume));
-    }
+    },
+    getSound: (type) => sounds.current[type]  
   };
 };
 
