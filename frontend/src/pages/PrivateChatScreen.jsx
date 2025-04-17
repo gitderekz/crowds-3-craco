@@ -14,7 +14,8 @@ import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
 
 const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
-  const { theme, socket } = useContext(ThemeContext);
+  const { theme } = useContext(ThemeContext);
+  const socket = useContext(SocketContext);
   const { setIncomingCall } = useContext(NotificationContext);
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
@@ -296,6 +297,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 
     const handleIncomingCall = (callData) => {
       if (callData.callerId === user.id) {
+        playCall();
         // Stop any existing ringtone
         if (ringtone) {
           ringtone.pause();
