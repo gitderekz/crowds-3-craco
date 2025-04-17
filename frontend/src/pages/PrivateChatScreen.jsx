@@ -12,6 +12,7 @@ import VideoCall from '../components/media/VideoCall';
 import useMediaUpload from '../hooks/useMediaUpload';
 import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
+import {useVideoCall} from '../contexts/VideoCallContext'
 
 const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const { theme } = useContext(ThemeContext);
@@ -59,6 +60,8 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const [tempMessages, setTempMessages] = useState({});
   const tempMessagesRef = useRef({});
   const [ringtone, setRingtone] = useState(null);
+  const { callTechnology, toggleCallTechnology } = useVideoCall();
+
 
   useEffect(()=>{
     if (!token) {
@@ -383,6 +386,13 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
           </div>
         </div>
         <div className="header-actions">
+          <button 
+            className={`tech-toggle-btn ${theme}`}
+            onClick={toggleCallTechnology}
+            title={`Switch to ${callTechnology === 'webrtc' ? 'Agora' : 'WebRTC'}`}
+          >
+            {callTechnology === 'webrtc' ? 'Switch to Agora' : 'Switch to WebRTC'}
+          </button>
           <button 
             className={`call-btn ${theme}`}
             onClick={() => startCall('video')}

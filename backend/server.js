@@ -15,6 +15,7 @@ const userRoutes = require('./routes/userRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const roomRoutes = require('./routes/roomRoutes');
+const agoraRoutes = require('./routes/agoraRoutes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const uploadMiddleware = require('./middlewares/uploadMiddleware');
 const fs = require('fs');
@@ -123,6 +124,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/agora', agoraRoutes);
 
 app.use(errorMiddleware);
 

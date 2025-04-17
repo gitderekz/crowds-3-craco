@@ -17,6 +17,7 @@ import useAuth from './hooks/useAuth';
 import io from 'socket.io-client';
 import NotificationBell from './components/NotificationBell';
 import useSound from './hooks/useSound';
+import { VideoCallProvider } from './contexts/VideoCallContext';
 
 export const ThemeContext = React.createContext();
 export const AuthContext = React.createContext();
@@ -168,38 +169,40 @@ function App() {
             setIncomingCall
           }}>
             <div className={`app ${theme}`}>
-              <Router>
-                <Header 
-                  onSearch={handleSearch} 
-                  setIsSearching={setIsSearching} 
-                  setActiveCategoryName={setActiveCategoryName} 
-                />
-                <div className="main-content">
-                  <SponsorRow loadedSponsorPhotos={sponsorPhotos}/>
-                  {/* <NotificationBell /> */}
-                  <Routes>
-                    <Route path="/" element={<Home photos={filteredPhotos} />} />
-                    <Route path="/photos" element={<Photos filteredPhotos={isSearching?filteredPhotos:null} isSearching={isSearching} activeCategoryName={activeCategoryName} />} />
-                    <Route 
-                      path="/upload" 
-                      element={
-                        <ProtectedRoute requiredRole="publisher" >
-                          <Upload fetchPhotos={fetchPhotos} fetchSponsorPhotos={fetchSponsorPhotos} />
-                        </ProtectedRoute>
-                      } 
-                    />
-                    <Route path="/users" 
-                      element={
-                        <ProtectedRoute requiredRole="publisher">
-                          <Users />
-                        </ProtectedRoute>
-                      } 
-                    />
-                    <Route path="/register" element={<Register />} />
-                  </Routes>
-                </div>
-                <Footer />
-              </Router>
+              <VideoCallProvider>
+                <Router>
+                  <Header 
+                    onSearch={handleSearch} 
+                    setIsSearching={setIsSearching} 
+                    setActiveCategoryName={setActiveCategoryName} 
+                  />
+                  <div className="main-content">
+                    <SponsorRow loadedSponsorPhotos={sponsorPhotos}/>
+                    {/* <NotificationBell /> */}
+                    <Routes>
+                      <Route path="/" element={<Home photos={filteredPhotos} />} />
+                      <Route path="/photos" element={<Photos filteredPhotos={isSearching?filteredPhotos:null} isSearching={isSearching} activeCategoryName={activeCategoryName} />} />
+                      <Route 
+                        path="/upload" 
+                        element={
+                          <ProtectedRoute requiredRole="publisher" >
+                            <Upload fetchPhotos={fetchPhotos} fetchSponsorPhotos={fetchSponsorPhotos} />
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route path="/users" 
+                        element={
+                          <ProtectedRoute requiredRole="publisher">
+                            <Users />
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route path="/register" element={<Register />} />
+                    </Routes>
+                  </div>
+                  <Footer />
+                </Router>
+              </VideoCallProvider>
             </div>
           </NotificationContext.Provider>
         </SocketContext.Provider>

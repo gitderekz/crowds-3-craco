@@ -11,6 +11,7 @@ import useMediaUpload from '../hooks/useMediaUpload';
 import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
 import VideoCall from '../components/media/VideoCall';
+import {useVideoCall} from '../contexts/VideoCallContext'
 
 const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }) => {
   const { theme } = useContext(ThemeContext);
@@ -55,6 +56,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const [isTyperPresent,setIsTyperPresent] = useState(true);
   const [inCall, setInCall] = useState(false);
   const [callType, setCallType] = useState(null);
+  const { callTechnology, toggleCallTechnology } = useVideoCall();
+
 
   // Handle incoming calls
   useEffect(() => {
@@ -484,6 +487,13 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
           {typingText}
         </div>
         <div className="call-buttons">
+          <button 
+            className={`tech-toggle-btn ${theme}`}
+            onClick={toggleCallTechnology}
+            title={`Switch to ${callTechnology === 'webrtc' ? 'Agora' : 'WebRTC'}`}
+          >
+            {callTechnology === 'webrtc' ? 'Switch to Agora' : 'Switch to WebRTC'}
+          </button>
           <button 
             className={`call-btn ${theme}`}
             onClick={() => startGroupCall('video')}

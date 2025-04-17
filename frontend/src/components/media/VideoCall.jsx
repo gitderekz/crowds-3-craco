@@ -1,10 +1,14 @@
+// src/components/media/VideoCall.jsx
 import React, { useEffect, useRef, useState, useContext } from 'react';
 import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
 import Peer from 'simple-peer';
+import AgoraRTC from 'agora-rtc-sdk-ng';
 import { SocketContext } from '../../App';
+import { useVideoCall } from '../../contexts/VideoCallContext';
 import './VideoCall.css';
 
 const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
+  const { callTechnology } = useVideoCall();
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState([]);
   const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
@@ -12,24 +16,101 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
   const [callStatus, setCallStatus] = useState('connecting');
   const [error, setError] = useState(null);
 
+  // Refs for WebRTC
   const peersRef = useRef({});
   const localVideoRef = useRef(null);
   const remoteVideosRef = useRef([]);
+  
+  // Refs for Agora
+  const agoraClientRef = useRef(null);
+  const agoraLocalStreamRef = useRef(null);
   const socket = useContext(SocketContext);
 
-  const initLocalStream = async () => {
+  // Common functions
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setVideoEnabled(videoTrack.enabled);
+        
+        // For Agora, update the published track
+        if (callTechnology === 'agora' && agoraClientRef.current) {
+          if (videoTrack.enabled) {
+            agoraClientRef.current.publish(videoTrack);
+          } else {
+            agoraClientRef.current.unpublish(videoTrack);
+          }
+        }
+      }
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setAudioEnabled(audioTrack.enabled);
+        
+        // For Agora, update the published track
+        if (callTechnology === 'agora' && agoraClientRef.current) {
+          if (audioTrack.enabled) {
+            agoraClientRef.current.publish(audioTrack);
+          } else {
+            agoraClientRef.current.unpublish(audioTrack);
+          }
+        }
+      }
+    }
+  };
+
+  const handleEndCall = () => {
+    // Clean up WebRTC
+    Object.values(peersRef.current).forEach(peer => peer.destroy());
+    peersRef.current = {};
+    
+    // Clean up Agora
+    if (agoraClientRef.current) {
+      agoraClientRef.current.leave();
+      agoraClientRef.current = null;
+    }
+    
+    // Clean up local stream
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    
+    // Notify server
+    socket.emit('end-call', { roomId, userId });
+    onEndCall();
+  };
+
+  // WebRTC implementation
+  const initWebRTC = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: callType === 'video',
         audio: true
       });
       setLocalStream(stream);
-      return stream;
+      
+      socket.emit('join-call-room', { roomId, userId });
+
+      otherUserIds.forEach(peerId => {
+        if (peerId !== userId) {
+          const isInitiator = parseInt(userId) < parseInt(peerId);
+          const peer = createPeer(peerId, isInitiator, stream);
+          peersRef.current[peerId] = peer;
+        }
+      });
+
+      setCallStatus('connected');
     } catch (err) {
-      console.error('Failed to get local stream:', err);
-      setError('Could not access camera/microphone. Please check permissions.');
+      console.error('Error setting up WebRTC call:', err);
       setCallStatus('failed');
-      throw err;
+      setError('Could not access camera/microphone. Please check permissions.');
     }
   };
 
@@ -76,64 +157,101 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
     return peer;
   };
 
-  const handleSignal = ({ signal, from }) => {
+  const handleWebRTCSignal = ({ signal, from }) => {
     if (!peersRef.current[from]) {
-      // if (!localStream) {
-      //   console.warn('Local stream not ready for signaling yet.');
-      //   return;
-      // }
       const peer = createPeer(from, false, localStream);
       peersRef.current[from] = peer;
     }
     peersRef.current[from].signal(signal);
   };
 
-  const handleEndCall = () => {
-    Object.values(peersRef.current).forEach(peer => peer.destroy());
-    peersRef.current = {};
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
+  // Agora implementation
+  const initAgora = async () => {
+    try {
+      // Initialize Agora client
+      const APP_ID = process.env.REACT_APP_AGORA_APP_ID;
+      agoraClientRef.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      
+      // Get local stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: callType === 'video',
+        audio: true
+      });
+      setLocalStream(stream);
+      agoraLocalStreamRef.current = stream;
+      
+      // Join the channel
+      const token = await getAgoraToken(roomId, userId);
+      await agoraClientRef.current.join(APP_ID, roomId, token, userId);
+      
+      // Publish local stream
+      const [audioTrack, videoTrack] = stream.getTracks();
+      await agoraClientRef.current.publish([audioTrack, videoTrack]);
+      
+      // Set up event listeners
+      agoraClientRef.current.on('user-published', handleAgoraUserPublished);
+      agoraClientRef.current.on('user-unpublished', handleAgoraUserUnpublished);
+      agoraClientRef.current.on('user-left', handleAgoraUserLeft);
+      
+      setCallStatus('connected');
+    } catch (err) {
+      console.error('Error setting up Agora call:', err);
+      setCallStatus('failed');
+      setError('Failed to initialize video call. Please try again.');
     }
-    socket.emit('end-call', { roomId, userId });
-    onEndCall();
   };
 
-  const toggleVideo = () => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setVideoEnabled(videoTrack.enabled);
-      }
+  const getAgoraToken = async (channelName, uid) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/agora-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({ channelName, uid })
+      });
+      const data = await response.json();
+      return data.token;
+    } catch (error) {
+      console.error('Error fetching Agora token:', error);
+      throw error;
     }
   };
 
-  const toggleAudio = () => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setAudioEnabled(audioTrack.enabled);
-      }
+  const handleAgoraUserPublished = async (user, mediaType) => {
+    await agoraClientRef.current.subscribe(user, mediaType);
+    
+    if (mediaType === 'video') {
+      setRemoteStreams(prev => [...prev, {
+        peerId: user.uid,
+        stream: user.videoTrack
+      }]);
+    }
+    
+    if (mediaType === 'audio') {
+      user.audioTrack.play();
     }
   };
 
+  const handleAgoraUserUnpublished = (user) => {
+    setRemoteStreams(prev => prev.filter(s => s.peerId !== user.uid));
+  };
+
+  const handleAgoraUserLeft = (user) => {
+    setRemoteStreams(prev => prev.filter(s => s.peerId !== user.uid));
+  };
+
+  // Initialize call based on technology
   useEffect(() => {
     const setupCall = async () => {
       try {
-        const stream = await initLocalStream();
-        socket.emit('join-call-room', { roomId, userId });
-
-        otherUserIds.forEach(peerId => {
-          if (peerId !== userId) {
-            const isInitiator = parseInt(userId) < parseInt(peerId);
-            const peer = createPeer(peerId, isInitiator, stream);
-            peersRef.current[peerId] = peer;
-          }
-        });
-
-        setCallStatus('connected');
+        if (callTechnology === 'webrtc') {
+          await initWebRTC();
+          socket.on('signal', handleWebRTCSignal);
+        } else {
+          await initAgora();
+        }
       } catch (err) {
         console.error('Error setting up call:', err);
         setCallStatus('failed');
@@ -142,13 +260,11 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 
     setupCall();
 
-    socket.on('signal', handleSignal);
-
     return () => {
-      socket.off('signal', handleSignal);
+      socket.off('signal', handleWebRTCSignal);
       handleEndCall();
     };
-  }, [roomId, userId, otherUserIds]);
+  }, [callTechnology]);
 
   return (
     <div className="video-call-overlay">
@@ -163,44 +279,60 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
         {callStatus === 'connecting' && (
           <div className="call-status">
             <div className="spinner"></div>
-            <p>Connecting...</p>
+            <p>Connecting using {callTechnology.toUpperCase()}...</p>
           </div>
         )}
 
         <div className="video-container">
           {remoteStreams.map(({ peerId, stream }, index) => (
             <div key={peerId} className="remote-video-container">
-              <video
-                ref={el => {
-                  if (el) {
-                    el.srcObject = stream;
-                    el.play().catch(err => console.error('Video play error:', err));
-                  }
-                  remoteVideosRef.current[index] = el;
-                }}
-                autoPlay
-                playsInline
-                className="remote-video"
-              />
+              {callTechnology === 'webrtc' ? (
+                <video
+                  ref={el => {
+                    if (el) {
+                      el.srcObject = stream;
+                      el.play().catch(err => console.error('Video play error:', err));
+                    }
+                    remoteVideosRef.current[index] = el;
+                  }}
+                  autoPlay
+                  playsInline
+                  className="remote-video"
+                />
+              ) : (
+                <div 
+                  id={`user-${peerId}`}
+                  className="remote-video"
+                  style={{ width: '100%', height: '100%' }}
+                />
+              )}
               <div className="remote-user-info">User {peerId}</div>
             </div>
           ))}
 
           {localStream && (
             <div className="local-video-container">
-              <video
-                ref={el => {
-                  localVideoRef.current = el;
-                  if (el) {
-                    el.srcObject = localStream;
-                    el.play().catch(e => console.error("Video play error:", e));
-                  }
-                }}
-                autoPlay
-                playsInline
-                muted
-                className="local-video"
-              />
+              {callTechnology === 'webrtc' ? (
+                <video
+                  ref={el => {
+                    localVideoRef.current = el;
+                    if (el) {
+                      el.srcObject = localStream;
+                      el.play().catch(e => console.error("Video play error:", e));
+                    }
+                  }}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="local-video"
+                />
+              ) : (
+                <div 
+                  id={`user-${userId}`}
+                  className="local-video"
+                  style={{ width: '100%', height: '100%' }}
+                />
+              )}
               <div className="local-user-info">You</div>
             </div>
           )}
@@ -223,6 +355,235 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 };
 
 export default VideoCall;
+
+// **************************
+
+
+// import React, { useEffect, useRef, useState, useContext } from 'react';
+// import { FaPhoneSlash, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
+// import Peer from 'simple-peer';
+// import { SocketContext } from '../../App';
+// import './VideoCall.css';
+
+// const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
+//   const [localStream, setLocalStream] = useState(null);
+//   const [remoteStreams, setRemoteStreams] = useState([]);
+//   const [videoEnabled, setVideoEnabled] = useState(callType === 'video');
+//   const [audioEnabled, setAudioEnabled] = useState(true);
+//   const [callStatus, setCallStatus] = useState('connecting');
+//   const [error, setError] = useState(null);
+
+//   const peersRef = useRef({});
+//   const localVideoRef = useRef(null);
+//   const remoteVideosRef = useRef([]);
+//   const socket = useContext(SocketContext);
+
+//   const initLocalStream = async () => {
+//     try {
+//       const stream = await navigator.mediaDevices.getUserMedia({
+//         video: callType === 'video',
+//         audio: true
+//       });
+//       setLocalStream(stream);
+//       return stream;
+//     } catch (err) {
+//       console.error('Failed to get local stream:', err);
+//       setError('Could not access camera/microphone. Please check permissions.');
+//       setCallStatus('failed');
+//       throw err;
+//     }
+//   };
+
+//   const createPeer = (peerId, initiator, stream) => {
+//     const peer = new Peer({
+//       initiator,
+//       trickle: false,
+//       stream,
+//       config: {
+//         iceServers: [
+//           { urls: 'stun:stun.l.google.com:19302' },
+//           { urls: 'stun:global.stun.twilio.com:3478' }
+//         ]
+//       }
+//     });
+
+//     peer.on('signal', signal => {
+//       socket.emit('signal', {
+//         signal,
+//         to: peerId,
+//         from: userId,
+//         roomId
+//       });
+//     });
+
+//     peer.on('stream', remoteStream => {
+//       setRemoteStreams(prev => {
+//         if (!prev.some(r => r.peerId === peerId)) {
+//           return [...prev, { peerId, stream: remoteStream }];
+//         }
+//         return prev;
+//       });
+//     });
+
+//     peer.on('error', err => {
+//       console.error('Peer error:', err);
+//     });
+
+//     peer.on('close', () => {
+//       delete peersRef.current[peerId];
+//       setRemoteStreams(prev => prev.filter(s => s.peerId !== peerId));
+//     });
+
+//     return peer;
+//   };
+
+//   const handleSignal = ({ signal, from }) => {
+//     if (!peersRef.current[from]) {
+//       // if (!localStream) {
+//       //   console.warn('Local stream not ready for signaling yet.');
+//       //   return;
+//       // }
+//       const peer = createPeer(from, false, localStream);
+//       peersRef.current[from] = peer;
+//     }
+//     peersRef.current[from].signal(signal);
+//   };
+
+//   const handleEndCall = () => {
+//     Object.values(peersRef.current).forEach(peer => peer.destroy());
+//     peersRef.current = {};
+//     if (localStream) {
+//       localStream.getTracks().forEach(track => track.stop());
+//       setLocalStream(null);
+//     }
+//     socket.emit('end-call', { roomId, userId });
+//     onEndCall();
+//   };
+
+//   const toggleVideo = () => {
+//     if (localStream) {
+//       const videoTrack = localStream.getVideoTracks()[0];
+//       if (videoTrack) {
+//         videoTrack.enabled = !videoTrack.enabled;
+//         setVideoEnabled(videoTrack.enabled);
+//       }
+//     }
+//   };
+
+//   const toggleAudio = () => {
+//     if (localStream) {
+//       const audioTrack = localStream.getAudioTracks()[0];
+//       if (audioTrack) {
+//         audioTrack.enabled = !audioTrack.enabled;
+//         setAudioEnabled(audioTrack.enabled);
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     const setupCall = async () => {
+//       try {
+//         const stream = await initLocalStream();
+//         socket.emit('join-call-room', { roomId, userId });
+
+//         otherUserIds.forEach(peerId => {
+//           if (peerId !== userId) {
+//             const isInitiator = parseInt(userId) < parseInt(peerId);
+//             const peer = createPeer(peerId, isInitiator, stream);
+//             peersRef.current[peerId] = peer;
+//           }
+//         });
+
+//         setCallStatus('connected');
+//       } catch (err) {
+//         console.error('Error setting up call:', err);
+//         setCallStatus('failed');
+//       }
+//     };
+
+//     setupCall();
+
+//     socket.on('signal', handleSignal);
+
+//     return () => {
+//       socket.off('signal', handleSignal);
+//       handleEndCall();
+//     };
+//   }, [roomId, userId, otherUserIds]);
+
+//   return (
+//     <div className="video-call-overlay">
+//       <div className="video-call-container">
+//         {error && (
+//           <div className="call-error">
+//             {error}
+//             <button onClick={handleEndCall} className="close-btn">Close</button>
+//           </div>
+//         )}
+
+//         {callStatus === 'connecting' && (
+//           <div className="call-status">
+//             <div className="spinner"></div>
+//             <p>Connecting...</p>
+//           </div>
+//         )}
+
+//         <div className="video-container">
+//           {remoteStreams.map(({ peerId, stream }, index) => (
+//             <div key={peerId} className="remote-video-container">
+//               <video
+//                 ref={el => {
+//                   if (el) {
+//                     el.srcObject = stream;
+//                     el.play().catch(err => console.error('Video play error:', err));
+//                   }
+//                   remoteVideosRef.current[index] = el;
+//                 }}
+//                 autoPlay
+//                 playsInline
+//                 className="remote-video"
+//               />
+//               <div className="remote-user-info">User {peerId}</div>
+//             </div>
+//           ))}
+
+//           {localStream && (
+//             <div className="local-video-container">
+//               <video
+//                 ref={el => {
+//                   localVideoRef.current = el;
+//                   if (el) {
+//                     el.srcObject = localStream;
+//                     el.play().catch(e => console.error("Video play error:", e));
+//                   }
+//                 }}
+//                 autoPlay
+//                 playsInline
+//                 muted
+//                 className="local-video"
+//               />
+//               <div className="local-user-info">You</div>
+//             </div>
+//           )}
+//         </div>
+
+//         <div className="call-controls">
+//           <button onClick={toggleVideo} className={`control-btn ${videoEnabled ? '' : 'disabled'}`}>
+//             {videoEnabled ? <FaVideo /> : <FaVideoSlash />}
+//           </button>
+//           <button onClick={toggleAudio} className={`control-btn ${audioEnabled ? '' : 'disabled'}`}>
+//             {audioEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
+//           </button>
+//           <button onClick={handleEndCall} className="end-call-btn">
+//             <FaPhoneSlash />
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default VideoCall;
 
 // ******************
 
