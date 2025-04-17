@@ -225,7 +225,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, setCallType, onEndC
       
       // const token = await getAgoraToken(roomId, userId);
       // await agoraClientRef.current.join(APP_ID, roomId, token, userId);
-      await agoraClientRef.current.join(APP_ID, String(roomId), null, userId); // token = null
+      await agoraClientRef.current.join(APP_ID, String(roomId), null, parseInt(userId)); // token = null
 
       const tracks = stream.getTracks();
       const audioTrack = tracks.find(track => track.kind === 'audio');
