@@ -78,6 +78,10 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 
   const handleSignal = ({ signal, from }) => {
     if (!peersRef.current[from]) {
+      // if (!localStream) {
+      //   console.warn('Local stream not ready for signaling yet.');
+      //   return;
+      // }
       const peer = createPeer(from, false, localStream);
       peersRef.current[from] = peer;
     }
@@ -123,7 +127,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 
         otherUserIds.forEach(peerId => {
           if (peerId !== userId) {
-            const isInitiator = userId < peerId;
+            const isInitiator = parseInt(userId) < parseInt(peerId);
             const peer = createPeer(peerId, isInitiator, stream);
             peersRef.current[peerId] = peer;
           }
