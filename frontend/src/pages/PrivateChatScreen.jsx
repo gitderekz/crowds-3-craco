@@ -74,7 +74,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     if (!socket) return;
 
     const handleIncomingCall = (callData) => {
-      if (callData.callerId === user.id) {
+      if (parseInt(callData.callerId) === parseInt(user.id)) {
         // Stop any existing ringtone
         if (ringtone) {
           ringtone.pause();
