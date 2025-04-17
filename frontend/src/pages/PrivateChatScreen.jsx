@@ -14,8 +14,7 @@ import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
 
 const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
-  const { theme } = useContext(ThemeContext);
-  const socket = useContext(SocketContext);
+  const { theme, socket } = useContext(ThemeContext);
   const { setIncomingCall } = useContext(NotificationContext);
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
@@ -35,8 +34,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     playCall, 
     playError,
     playForeground,
-    playSent,
-    getSound
+    playSent
   } = useSound();
   const {
     mediaFiles,
@@ -60,7 +58,6 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const [tempMessages, setTempMessages] = useState({});
   const tempMessagesRef = useRef({});
   const [ringtone, setRingtone] = useState(null);
-  const callSound = getSound('call');
 
   useEffect(()=>{
     if (!token) {
@@ -68,82 +65,6 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
       return;
     }
   })
-
-  // Handle incoming calls
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleIncomingCall = (callData) => {
-      if (parseInt(callData.callerId) === parseInt(user.id)) {
-        // Stop any existing ringtone
-        if (ringtone) {
-          ringtone.pause();
-          ringtone.currentTime = 0;
-        }
-        
-        // Play call sound using your custom hook
-        playCall();
-        // Store the sound (if you need to stop it later)
-        setRingtone(callSound); // Optional, only if you want to pause it later
-            
-        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
-        if (confirmCall) {
-          setCallType(callData.callType);
-          setInCall(true);
-          socket.emit('call-response', {
-            response: 'accepted',
-            callerId: callData.callerId,
-            calleeId: currentUserId,
-            roomId: callData.roomId
-          });
-        } else {
-          socket.emit('call-response', {
-            response: 'rejected',
-            callerId: callData.callerId,
-            calleeId: currentUserId,
-            roomId: callData.roomId
-          });
-        }
-        // Stop ringtone after decision
-        if (ringtone) {
-          ringtone.pause();
-          ringtone.currentTime = 0;
-          setRingtone(null);
-        }
-        setIncomingCall(null);
-      }
-    };
-
-    socket.on('incoming-call', handleIncomingCall);
-
-    return () => {
-      if (ringtone) {
-        ringtone.pause();
-        setRingtone(null);
-      }
-      socket.off('incoming-call', handleIncomingCall);
-    };
-  }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
-
-  const startCall = (type) => {
-    setCallType(type);
-    setInCall(true);
-    
-    // Notify the other user
-    socket.emit('call-notification', {
-      callType: type,
-      callerId: currentUserId,
-      calleeIds: [user.id],
-      roomId: roomId
-    });
-  };
-
-  const endCall = () => {
-    setInCall(false);
-    setCallType(null);
-  };
-
-
   // Initialize socket connection
   useEffect(() => {
     console.log('Initializing socket connection...'); // Add this
@@ -368,6 +289,77 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     scrollToBottom();
   }, [messages]);
 
+
+  // Handle incoming calls
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingCall = (callData) => {
+      if (callData.callerId === user.id) {
+        // Stop any existing ringtone
+        if (ringtone) {
+          ringtone.pause();
+          ringtone.currentTime = 0;
+        }
+        
+        // Play new ringtone
+        const newRingtone = new Audio('/sounds/ringtone.mp3');
+        newRingtone.loop = true;
+        newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
+        setRingtone(newRingtone);
+        
+        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
+        if (confirmCall) {
+          setCallType(callData.callType);
+          setInCall(true);
+          socket.emit('call-response', {
+            response: 'accepted',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        } else {
+          socket.emit('call-response', {
+            response: 'rejected',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        }
+        newRingtone.pause();
+        setRingtone(null);
+        setIncomingCall(null);
+      }
+    };
+
+    socket.on('incoming-call', handleIncomingCall);
+
+    return () => {
+      if (ringtone) {
+        ringtone.pause();
+        setRingtone(null);
+      }
+      socket.off('incoming-call', handleIncomingCall);
+    };
+  }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
+
+  const startCall = (type) => {
+    setCallType(type);
+    setInCall(true);
+    
+    // Notify the other user
+    socket.emit('call-notification', {
+      callType: type,
+      callerId: currentUserId,
+      calleeIds: [user.id],
+      roomId: roomId
+    });
+  };
+
+  const endCall = () => {
+    setInCall(false);
+    setCallType(null);
+  };
 
   return (
     <div className={`private-chat-container ${theme}`}>
