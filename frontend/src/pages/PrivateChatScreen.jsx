@@ -79,11 +79,12 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
           ringtone.currentTime = 0;
         }
         
-        // Play new ringtone
-        const newRingtone = new Audio('../../assets/sounds/mixkit-urgent-simple-tone-loop-2976.wav');
-        newRingtone.loop = true;
-        newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
-        setRingtone(newRingtone);
+        // // Play new ringtone
+        // const newRingtone = new Audio('../../assets/sounds/mixkit-urgent-simple-tone-loop-2976.wav');
+        // newRingtone.loop = true;
+        // newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
+        // setRingtone(newRingtone);
+        setRingtone(playCall);
         
         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
         if (confirmCall) {
