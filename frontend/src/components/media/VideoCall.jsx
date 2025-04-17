@@ -203,7 +203,7 @@ const VideoCall = ({ roomId, userId, otherUserIds, callType, onEndCall }) => {
 
   const getAgoraToken = async (channelName, uid) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/agora-token`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/agora/agora-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
