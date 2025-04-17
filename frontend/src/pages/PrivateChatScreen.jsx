@@ -79,13 +79,11 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
           ringtone.currentTime = 0;
         }
         
-        // // Play new ringtone
-        // const newRingtone = new Audio('../../assets/sounds/mixkit-urgent-simple-tone-loop-2976.wav');
-        // newRingtone.loop = true;
-        // newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
-        // setRingtone(newRingtone);
-        setRingtone(playCall);
-        
+        // Play call sound using your custom hook
+        playCall();
+        // Store the sound (if you need to stop it later)
+        setRingtone(sounds.current.call); // Optional, only if you want to pause it later
+            
         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
         if (confirmCall) {
           setCallType(callData.callType);
@@ -104,8 +102,12 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
             roomId: callData.roomId
           });
         }
-        newRingtone.pause();
-        setRingtone(null);
+        // Stop ringtone after decision
+        if (ringtone) {
+          ringtone.pause();
+          ringtone.currentTime = 0;
+          setRingtone(null);
+        }
         setIncomingCall(null);
       }
     };
