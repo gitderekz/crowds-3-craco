@@ -14,7 +14,8 @@ import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
 
 const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
-  const { theme, socket } = useContext(ThemeContext);
+  const { theme } = useContext(ThemeContext);
+  const socket = useContext(SocketContext);
   const { setIncomingCall } = useContext(NotificationContext);
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
@@ -65,29 +66,102 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
       return;
     }
   })
+
+  // Handle incoming calls
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingCall = (callData) => {
+      if (callData.callerId === user.id) {
+        // Stop any existing ringtone
+        if (ringtone) {
+          ringtone.pause();
+          ringtone.currentTime = 0;
+        }
+        
+        // Play new ringtone
+        const newRingtone = new Audio('/sounds/ringtone.mp3');
+        newRingtone.loop = true;
+        newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
+        setRingtone(newRingtone);
+        
+        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
+        if (confirmCall) {
+          setCallType(callData.callType);
+          setInCall(true);
+          socket.emit('call-response', {
+            response: 'accepted',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        } else {
+          socket.emit('call-response', {
+            response: 'rejected',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        }
+        newRingtone.pause();
+        setRingtone(null);
+        setIncomingCall(null);
+      }
+    };
+
+    socket.on('incoming-call', handleIncomingCall);
+
+    return () => {
+      if (ringtone) {
+        ringtone.pause();
+        setRingtone(null);
+      }
+      socket.off('incoming-call', handleIncomingCall);
+    };
+  }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
+
+  const startCall = (type) => {
+    setCallType(type);
+    setInCall(true);
+    
+    // Notify the other user
+    socket.emit('call-notification', {
+      callType: type,
+      callerId: currentUserId,
+      calleeIds: [user.id],
+      roomId: roomId
+    });
+  };
+
+  const endCall = () => {
+    setInCall(false);
+    setCallType(null);
+  };
+
+
   // Initialize socket connection
   useEffect(() => {
     console.log('Initializing socket connection...'); // Add this
-    // socket/*Ref.current*/ = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
-    //   withCredentials: true,
-    //   transports: ['websocket']
-    // });
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+      withCredentials: true,
+      transports: ['websocket']
+    });
 
-    // // Add connection event listeners
-    // socket/*Ref.current*/.on('connect', () => {
-    //   console.log('Socket connected:', socket/*Ref.current*/.id);
-    // });
+    // Add connection event listeners
+    socketRef.current.on('connect', () => {
+      console.log('Socket connected:', socketRef.current.id);
+    });
   
-    // socket/*Ref.current*/.on('disconnect', () => {
-    //   console.log('Socket disconnected');
-    // });
+    socketRef.current.on('disconnect', () => {
+      console.log('Socket disconnected');
+    });
   
-    // socket/*Ref.current*/.on('connect_error', (err) => {
-    //   console.error('Socket connection error:', err);
-    // });
+    socketRef.current.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
+    });
 
     // Join private chat room
-    socket/*Ref.current*/.emit('joinRoom', { 
+    socketRef.current.emit('joinRoom', { 
       roomId, 
       userId: currentUserId 
     });
@@ -151,15 +225,15 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
       scrollToBottom();
     };
 
-    socket/*Ref.current*/.on('newMessage', handleNewMessage);
+    socketRef.current.on('newMessage', handleNewMessage);
 
-    socket/*Ref.current*/.on('typing', ({ userId, isTyping }) => {
+    socketRef.current.on('typing', ({ userId, isTyping }) => {
       if (userId === user.id) {
         setRemoteIsTyping(isTyping);
       }
     });
 
-    socket/*Ref.current*/.on('userStatus', ({ userId, online }) => {
+    socketRef.current.on('userStatus', ({ userId, online }) => {
       if (userId === user.id) {
         setIsOnline(online);
       }
@@ -167,8 +241,8 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 
     return () => {
       console.log('Cleaning up socket...'); // Add this
-      socket/*Ref.current*/.off('newMessage', handleNewMessage);
-      socket/*Ref.current*/.disconnect();
+      socketRef.current.off('newMessage', handleNewMessage);
+      socketRef.current.disconnect();
     };
   }, [roomId, user.id, currentUserId,/* playNotification,playSent*/]);
 
@@ -178,7 +252,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 
   const handleTyping = (typing) => {
     setIsTyping(typing);
-    socket/*Ref.current*/.emit('typing', { 
+    socketRef.current.emit('typing', { 
       roomId, 
       userId: currentUserId,
       isTyping: typing 
@@ -223,7 +297,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
       }]);
       
       // Emit to server
-      socket/*Ref.current*/.emit('sendMessage', {
+      socketRef.current.emit('sendMessage', {
         roomId,
         message: {
           ...newMessage,
@@ -289,77 +363,6 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     scrollToBottom();
   }, [messages]);
 
-
-  // Handle incoming calls
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleIncomingCall = (callData) => {
-      if (callData.callerId === user.id) {
-        // Stop any existing ringtone
-        if (ringtone) {
-          ringtone.pause();
-          ringtone.currentTime = 0;
-        }
-        
-        // Play new ringtone
-        const newRingtone = new Audio('/sounds/ringtone.mp3');
-        newRingtone.loop = true;
-        newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
-        setRingtone(newRingtone);
-        
-        const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
-        if (confirmCall) {
-          setCallType(callData.callType);
-          setInCall(true);
-          socket.emit('call-response', {
-            response: 'accepted',
-            callerId: callData.callerId,
-            calleeId: currentUserId,
-            roomId: callData.roomId
-          });
-        } else {
-          socket.emit('call-response', {
-            response: 'rejected',
-            callerId: callData.callerId,
-            calleeId: currentUserId,
-            roomId: callData.roomId
-          });
-        }
-        newRingtone.pause();
-        setRingtone(null);
-        setIncomingCall(null);
-      }
-    };
-
-    socket.on('incoming-call', handleIncomingCall);
-
-    return () => {
-      if (ringtone) {
-        ringtone.pause();
-        setRingtone(null);
-      }
-      socket.off('incoming-call', handleIncomingCall);
-    };
-  }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
-
-  const startCall = (type) => {
-    setCallType(type);
-    setInCall(true);
-    
-    // Notify the other user
-    socket/*Ref.current*/.emit('call-notification', {
-      callType: type,
-      callerId: currentUserId,
-      calleeIds: [user.id],
-      roomId: roomId
-    });
-  };
-
-  const endCall = () => {
-    setInCall(false);
-    setCallType(null);
-  };
 
   return (
     <div className={`private-chat-container ${theme}`}>
@@ -817,13 +820,13 @@ export default PrivateChatScreen;
 
 //   // Initialize socket connection
 //   useEffect(() => {
-//     socket/*Ref.current*/ = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
 //       withCredentials: true,
 //       transports: ['websocket']
 //     });
 
 //     // Join private chat room
-//     socket/*Ref.current*/.emit('joinRoom', { 
+//     socketRef.current.emit('joinRoom', { 
 //       roomId, 
 //       userId: currentUserId 
 //     });
@@ -856,7 +859,7 @@ export default PrivateChatScreen;
 //     loadMessages();
 
 //     // Socket event listeners
-//     socket/*Ref.current*/.on('newMessage', (message) => {
+//     socketRef.current.on('newMessage', (message) => {
 //       setMessages(prev => [
 //         ...prev.filter(msg => msg.id !== message.tempId && msg.id !== message.id),
 //         { ...message, status: 'delivered' }
@@ -868,27 +871,27 @@ export default PrivateChatScreen;
 //       scrollToBottom();
 //     });
 
-//     socket/*Ref.current*/.on('sendMessageError', ({ tempId, error }) => {
+//     socketRef.current.on('sendMessageError', ({ tempId, error }) => {
 //       setMessages(prev => prev.map(msg => 
 //         msg.id === tempId ? { ...msg, status: 'failed' } : msg
 //       ));
 //       setFailedMessages(prev => ({ ...prev, [tempId]: true }));
 //     });
 
-//     socket/*Ref.current*/.on('typing', ({ userId, isTyping }) => {
+//     socketRef.current.on('typing', ({ userId, isTyping }) => {
 //       if (userId === user.id) {
 //         setRemoteIsTyping(isTyping);
 //       }
 //     });
 
-//     socket/*Ref.current*/.on('userStatus', ({ userId, online }) => {
+//     socketRef.current.on('userStatus', ({ userId, online }) => {
 //       if (userId === user.id) {
 //         setIsOnline(online);
 //       }
 //     });
 
 //     return () => {
-//       socket/*Ref.current*/.disconnect();
+//       socketRef.current.disconnect();
 //     };
 //   }, [roomId, user.id, currentUserId]);
 
@@ -918,7 +921,7 @@ export default PrivateChatScreen;
 //     scrollToBottom();
 
 //     try {
-//       socket/*Ref.current*/.emit('sendMessage', {
+//       socketRef.current.emit('sendMessage', {
 //         roomId,
 //         message: {
 //           ...newMessage,
@@ -945,7 +948,7 @@ export default PrivateChatScreen;
 //       msg.id === messageId ? { ...msg, status: 'sending' } : msg
 //     ));
 
-//     socket/*Ref.current*/.emit('sendMessage', {
+//     socketRef.current.emit('sendMessage', {
 //       roomId,
 //       message: {
 //         ...message,
@@ -956,7 +959,7 @@ export default PrivateChatScreen;
 
 //   const handleTyping = (typing) => {
 //     setIsTyping(typing);
-//     socket/*Ref.current*/.emit('typing', { 
+//     socketRef.current.emit('typing', { 
 //       roomId, 
 //       userId: currentUserId,
 //       isTyping: typing 
