@@ -62,7 +62,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
 
     const handleIncomingCall = (callData) => {
       if (callData.roomId === room.photoId) {
-        playCall();
+        // playCall();
         const confirmCall = window.confirm(`Incoming ${callData.callType} call. Accept?`);
         if (confirmCall) {
           setCallType(callData.callType);
