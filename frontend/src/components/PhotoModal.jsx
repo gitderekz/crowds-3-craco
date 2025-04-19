@@ -181,7 +181,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                 {photo.gallery?JSON.parse(photo.gallery)?.map((img, index) => (
                   <div key={index} className="slider-image-container">
                     <img 
-                      src={img} 
+                      src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${img}`} 
                       alt={`Gallery ${index + 1}`} 
                       className="slider-image"
                     />
