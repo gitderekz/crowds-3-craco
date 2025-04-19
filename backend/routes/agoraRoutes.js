@@ -1,7 +1,7 @@
 // routes/agoraRoutes.js
 const express = require('express');
 const router = express.Router();
-const Agora = require('agora-access-token');
+// const Agora = require('agora-access-token');
 const db = require('../models');
 const {authenticate} = require('../middlewares/authMiddleware');
 

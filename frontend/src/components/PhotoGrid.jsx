@@ -84,6 +84,12 @@ const PhotoGrid = ({ photos, activeCategoryName }) => {
     setSelectedChatRoom({
       photoId: photo.id,
       name: photo.name,
+      location: photo.location,
+      schedule: photo.schedule,
+      event: photo.event,
+      gallery: photo.gallery,
+      services: photo.services,
+      photoLikes: photo.photoLikes,
       type: activeCategoryName
     });
   };

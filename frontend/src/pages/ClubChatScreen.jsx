@@ -489,6 +489,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         </div>
         <div className="call-buttons">
           <button 
+            style={{display:"none"}}
             className={`tech-toggle-btn ${theme}`}
             onClick={toggleCallTechnology}
             title={`Switch to ${callTechnology === 'webrtc' ? 'Agora' : 'WebRTC'}`}
@@ -507,8 +508,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
           >
             <FaPhone />
           </button>
-        </div>
         <button onClick={onClose}>✕</button>
+        </div>
       </div>
 
       {/* Mobile Tabs */}
@@ -694,26 +695,33 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
             <h4>Club Details</h4>
           </div>
           <div className="info-card">
-            <div className="club-header">
               <h3>{room.name}</h3>
+            <div className="club-header">
               <div className="attendees-count">
-                <span role="img" aria-label="attendees">👥</span> {attendees} going
+                <span role="img" aria-label="attendees">👥</span> {attendees} participants going
               </div>
             </div>
             
             <div className="info-item">
               <span className="info-label">📍 Location:</span>
-              <span className="info-value">{room.location || 'Unknown'}</span>
+              <span className="info-value">{JSON.parse(room.location)?.name || 'Unknown'}</span>
             </div>
             
             <div className="info-item">
               <span className="info-label">🕒 Hours:</span>
-              <span className="info-value">{room.hours || 'Not specified'}</span>
+              <span className="info-value">{room.hours || '24 hrs'}</span>
             </div>
             
             <div className="info-item">
               <span className="info-label">📅 Events:</span>
-              <span className="info-value">Weekly meetups</span>
+              <div className="info-value">
+                {
+                  room.schedule?
+                  JSON.parse(room.schedule)?.map((event, index)=>(
+                    <span key={index} className="info-value">{event.time}-{event.event}<br /></span>
+                  )):"No events"
+                }
+              </div>
             </div>
             
             <div className="club-description">

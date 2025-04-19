@@ -47,12 +47,15 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
 
   // Effect to set activeCategoryName from localStorage if not provided as prop
   useEffect(() => {
+    
     if (!propActiveCategoryName) {
       const storedCategoryName = localStorage.getItem('activeCategoryName');
       if (storedCategoryName) {
         setActiveCategoryName(storedCategoryName);
       }
     }
+    console.log(`propActiveCategoryName ${propActiveCategoryName}`);
+    console.log(`storedCategoryName ${activeCategoryName}`);
   }, [propActiveCategoryName]);  // Dependency on propActiveCategoryName
 
   const handleLike = async () => {
@@ -79,7 +82,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
         {/* Add this fixed header section */}
         <div className="modal-header">
           <p className="modal-title">{photo.name}</p>
-          <FaTimes className="close-icon" onClick={onClose} />
+          <button onClick={onClose}>✕</button>
         </div>
         
         <div className="modal-scrollable-content">
@@ -108,7 +111,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                   <FaHeart className={`fa-heart modal ${hasLiked ? 'liked' : ''} `} />
                 </div>
 
-                <p className="place-category">Category: {activeCategoryName}</p>
+                <p className="place-category">Category: {activeCategoryName??''}</p>
 
               </div>
             </div>
@@ -120,10 +123,10 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
               <div className="address-section">
                 <b><FaMapMarkerAlt /> Address</b>
                 <div className="address-details">
-                  <span>Name: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{address.name}</i></span>
-                  <span>Street: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{address.street}</i></span>
-                  <span>Building: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{address.building}</i></span>
-                  <span>Location: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{address.geoLocation}</i></span>
+                  <span>Name: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.name || address.name}</i></span>
+                  <span>Street: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.street || address.street}</i></span>
+                  <span>Building: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.building || address.building}</i></span>
+                  <span>Location: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.geoLocation || address.geoLocation}</i></span>
                 </div>
               </div>
 
@@ -139,13 +142,19 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                 <div className="event-next">
                   <span className="event-title">Next</span>
                   <span className="event-time">
-                    {photo.nextEvent?.time??'11:30 AM'} - {photo.nextEvent?.name??"Pilates"}
+                     {/* {photo.nextEvent?.time??'11:30 AM'} - {photo.nextEvent?.name??"Pilates"} */}
+                    {
+                      photo.schedule?
+                      JSON.parse(photo.schedule)?.map((event, index)=>(
+                        <span key={index} className="info-value">{event.time}-{event.event}<br /></span>
+                      )):"No events"
+                    }
                   </span>
                 </div>
                 <div className="members">
                   <span className="members-title"><FaUsers /> Members</span>
                   <span className="members-count">
-                    {photo.members??'No Members'}
+                    {photo.members??'100+'}
                   </span>
                 </div>
               </div>
@@ -154,9 +163,10 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
               <div className="services-section">
                 <b>Services Offered</b>
                 <ul className="services-list">
-                  {services.map((service, index) => (
+                  {/* {services.map((service, index) => ( */}
+                  {photo.services?JSON.parse(photo.services)?.map((service, index) => (
                     <li key={index}><span>{service}</span></li>
-                  ))}
+                  )):<li>Not listed</li>}
                 </ul>
               </div>
             </div>
@@ -167,7 +177,8 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
             <div className="image-slider-section">
               <h3>Gallery</h3>
               <Slider {...sliderSettings}>
-                {galleryImages.map((img, index) => (
+                {/* {galleryImages.map((img, index) => ( */}
+                {photo.gallery?JSON.parse(photo.gallery)?.map((img, index) => (
                   <div key={index} className="slider-image-container">
                     <img 
                       src={img} 
@@ -175,7 +186,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                       className="slider-image"
                     />
                   </div>
-                ))}
+                )):''}
               </Slider>
             </div>
 

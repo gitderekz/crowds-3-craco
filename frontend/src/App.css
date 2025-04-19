@@ -1166,8 +1166,10 @@
     background: rgba(0, 0, 0, 0.9);
   }
 
+  /* Modal */
   /* Chat modal */
   /* Chat Modal Styles */
+  .photo-modal,
   .chat-modal-overlay {
     position: fixed;
     top: 0;
@@ -1181,6 +1183,7 @@
     z-index: 1000;
   }
 
+  .modal-content,
   .club-chat-container,
   .private-chat-container {
     background: white;
@@ -1191,6 +1194,17 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+  
+  .modal-content {
+    /*background: #ffffff; /* Soft White */
+    /* padding-inline: 20px; */
+    /* margin-bottom: 40px; */
+    gap: 20px;
+    /* max-width: 90%; */
+    /* max-height: 80%; */
+    /* overflow: auto; */
+    /* position: relative; */
   }
 
   .chat-layout {
@@ -1215,6 +1229,7 @@
   .chat-section,
   .messages-section {
     flex: 1;
+    width: 50%;
     display: flex;
     flex-direction: column;
   }
@@ -1376,6 +1391,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+  .call-buttons{
+    display: flex;
+    justify-content: space-between;
+    gap: 40px;
   }
 
   .chat-header.light {
@@ -1937,15 +1957,6 @@
       flex-direction: column;
     }
     
-    .participants-section,
-    .info-section,
-    .user-info-section {
-      width: 100%;
-      max-height: 150px;
-      border-right: none;
-      border-bottom: 1px solid #d3d3d3;
-    }
-    
     .info-section.dark,
     .user-info-section.dark {
       border-bottom: 1px solid #2c2c2c;
@@ -1957,12 +1968,16 @@
   }
 
   @media (max-width: 480px) {
+    .modal-content,
     .club-chat-container,
     .private-chat-container {
       width: 95%;
       height: 90vh;
     }
     
+    .call-buttons{
+      gap: 10px;
+    }
     .message-input {
       flex-wrap: wrap;
     }
@@ -2089,6 +2104,8 @@
       display: none; /* Hide all sections by default on mobile */
       overflow-y: auto;
       padding-bottom: 60px; /* Space for tabs */
+      border-bottom: 1px solid #d3d3d3;
+      /* max-height: 150px; */
     }
 
     .participants-section.mobile-active,
@@ -2111,7 +2128,7 @@
       display: flex;
       flex-direction: column;
       height: 100%;
-      width: 100%;
+      width: 90%;
       /* position: absolute; */
       top: 0;
       left: 0;
@@ -2263,34 +2280,6 @@
   }
   
   /* Modal */
-  .photo-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  
-  .modal-content {
-    background: #ffffff; /* Soft White */
-    padding-inline: 20px;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    max-width: 90%;
-    max-height: 80%;
-    /* max-height: 80vh; */
-    /*width: 60%; /* Default width for large screens */
-    /*height: 60%; /* Default height for large screens */
-    overflow: auto;
-    position: relative;
-  }
   
   .dark .modal-content {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
