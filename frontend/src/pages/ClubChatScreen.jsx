@@ -1,9 +1,11 @@
 // frontend/src/pages/ClubChatScreen.jsx (updated)
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CustomAlert from '../components/CustomAlert';
 import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaFile, FaUserFriends, FaInfoCircle, FaCheck, FaSpinner, FaPhone } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
 import io from 'socket.io-client';
+import { api } from '../services/authService';
 import { ThemeContext, SocketContext, NotificationContext } from '../App';
 import useSound from '../hooks/useSound';
 import axios from 'axios';
@@ -14,6 +16,13 @@ import VideoCall from '../components/media/VideoCall';
 import {useVideoCall} from '../contexts/VideoCallContext'
 
 const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }) => {
+  const [isMingling, setIsMingling] = useState(false);
+  const [potentialMatches, setPotentialMatches] = useState([]);
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [showMingleModal, setShowMingleModal] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [admirers, setAdmirers] = useState([]);
+
   const { theme } = useContext(ThemeContext);
   const socket = useContext(SocketContext);
   const { setIncomingCall } = useContext(NotificationContext);
@@ -49,6 +58,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const tempMessagesRef = useRef({});
+  const [alert, setAlert] = useState({ message: '', type: '' });
   const [tempMessages, setTempMessages] = useState({});
   const currentUserId = localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null;
   const token = localStorage.getItem('accessToken');
@@ -118,7 +128,9 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   };
 
   // Rest of the existing ClubChatScreen code remains the same...
-  
+  const showAlert = (message, type) => {
+    setAlert({ message, type });
+  };
   // Fetch participants from server
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -257,6 +269,21 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
       console.error('Socket connection error:', err);
     });
 
+    // mingle socket connection
+    socketRef.current.on('mingle-match', ({ matchedUserId, matchedUserName }) => {
+      showAlert(`You've matched with ${matchedUserName}!`, 'success');
+      setMatches(prev => [...prev, matchedUserId]);
+    });
+    
+    socketRef.current.on('mingle-chosen', ({ chooserId }) => {
+      setAdmirers(prev => [...prev, chooserId]);
+    });
+    
+    socketRef.current.on('mingle-ignored', ({ chooserId }) => {
+      setAdmirers(prev => prev.filter(id => id !== chooserId));
+    });
+    
+
     // Join room
     socketRef.current.emit('joinRoom', { 
       roomId: room.photoId, 
@@ -322,7 +349,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
           return prev.filter(id => id !== userId);
         }
       });
-    };
+    };    
 
     // Set up event listeners
     socketRef.current.on('presenceUpdate', handlePresenceUpdate);
@@ -467,7 +494,116 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
     ? `${typingUsers.length} user${typingUsers.length > 1 ? 's' : ''} typing...`
     : '';
 
-  // Just add the call buttons to the header:
+  // mingle functions
+  const toggleMingle = async () => {
+    try {
+      const response = await api.post('/mingle/toggle', { userId: currentUserId },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+        console.log('setIsMingling.length',response.data.length);
+      setIsMingling(response.data.isMingling);
+      
+      if (response.data.isMingling) {
+        const matchesResponse = await api.get(`/mingle/potential-matches/${currentUserId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          });
+          console.log('matchesResponse.data.length',matchesResponse.data.length);
+          
+        setPotentialMatches(matchesResponse.data);
+      
+        // Get existing admirers
+        const admirersResponse = await api.get(`/mingle/admirers/${currentUserId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }
+        );
+        setAdmirers(admirersResponse.data);
+        
+        // Get existing matches
+        const existingMatchesResponse = await api.get(`/mingle/matches/${currentUserId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }
+        );
+        setMatches(existingMatchesResponse.data);
+        
+        setShowMingleModal(true);
+      }
+    } catch (error) {
+      console.error('Error toggling mingle:', error);
+      showAlert('Failed to toggle mingle status', 'error');
+    }
+  };
+  
+  const viewMatch = async (user) => {
+    try {
+      setSelectedMatch(user);
+    } catch (error) {
+      console.error('Error viewing match:', error);
+      showAlert('Failed to view match', 'error');
+    }
+  };
+  
+  const chooseMatch = async (user) => {
+    try {
+      const response = await api.post('/mingle/choose', {
+        chooserId: currentUserId,
+        chosenId: user.id
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+    
+      // Update local state
+      setPotentialMatches(prev => prev.filter(u => u.id !== user.id));
+      setMatches(prev => [...prev, user.id]);
+      setAdmirers(prev => prev.filter(id => id !== user.id));
+      
+      showAlert(response.data.isMatch ? 
+        `You've matched with ${user.username}!` : 
+        `You've chosen ${user.username}`, 
+      response.data.isMatch ? 'success' : 'info');
+    } catch (error) {
+      console.error('Error choosing match:', error);
+      showAlert('Failed to choose match', 'error');
+    }
+  };
+  
+  const ignoreMatch = async (user) => {
+    try {
+      await api.post('/mingle/ignore', {
+        chooserId: currentUserId,
+        chosenId: user.id
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+    
+      // Update local state
+      setPotentialMatches(prev => prev.filter(u => u.id !== user.id));
+      setAdmirers(prev => prev.filter(id => id !== user.id));
+      setSelectedMatch(null);
+      
+      showAlert(`You've ignored ${user.username}`, 'info');
+    } catch (error) {
+      console.error('Error ignoring match:', error);
+      showAlert('Failed to ignore match', 'error');
+    };
+  };
 
   return (
     <div className={`club-chat-container ${theme}`}>
@@ -580,22 +716,40 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         <div className={`chat-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
           <div className="attendance-buttons">
             <button 
+              className={`attendance-btn mingle ${theme} ${isMingling ? 'active' : ''}`}
+              onClick={toggleMingle}
+            >
+              <span role="img" aria-label="Mingle">👥</span> 
+              <span className="admirer">{admirers.length > 0 ? admirers.length : ''}</span>
+            </button>
+
+            <button 
               className={`attendance-btn present ${theme}`}
               onClick={() => {
-                setAttendees(a => a + 1);
-                if (window.navigator.vibrate) window.navigator.vibrate(50);
+                socket.emit('update-presence', { 
+                  roomId: room.photoId, 
+                  userId: currentUserId,
+                  isPresent: true
+                });
+                setIsPresent(true);
               }}
+              disabled={isPresent}
             >
               <span role="img" aria-label="Present">👍</span> 
-              Present <span className="count">({attendees})</span>
+              Present <span className="count">({presentCount})</span>
             </button>
-            
+
             <button 
               className={`attendance-btn absent ${theme}`}
               onClick={() => {
-                setAttendees(a => Math.max(0, a - 1));
-                if (window.navigator.vibrate) window.navigator.vibrate(50);
+                socket.emit('update-presence', { 
+                  roomId: room.photoId, 
+                  userId: currentUserId,
+                  isPresent: false
+                });
+                setIsPresent(false);
               }}
+              disabled={!isPresent}
             >
               <span role="img" aria-label="Absent">👎</span> 
               Absent
@@ -610,6 +764,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 key={msg.id || msg.tempId} 
                 className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
               >
+                <i style={{fontSize:"12px"}}>{msg.sender.username}</i>
+                <hr style={{margin:"0", padding:"0", textDecoration:"none"}}/>
                 {renderMessageContent(msg)}
                 <div className="message-time">
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -730,8 +886,142 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
           </div>
         </div>
       </div>
-      </div>
-      );
+
+      {/* Mingle modal */}
+      {showMingleModal && (
+        <div className={`mingle-modal-overlay ${theme}`}>
+          <div className={`mingle-modal ${theme}`}>
+            <div className="mingle-header">
+              <h3>Find Someone to Mingle With Today</h3>
+              <button onClick={() => setShowMingleModal(false)}>✕</button>
+            </div>
+            
+            {alert.message && (
+              <CustomAlert
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert({ message: '', type: '' })}
+              />
+            )}
+            <div className="mingle-content">
+              <div className="mingle-list">
+                {/* Show matches first */}
+                {matches.map(user => (
+                  <div 
+                    key={user.id} 
+                    className={`mingle-item ${theme} ${selectedMatch === user.id ? 'selected' : ''} match`}
+                    onClick={() => viewMatch(user)}
+                  >
+                    <div className="mingle-avatar">
+                      <img 
+                        src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} 
+                        alt={user.username}
+                      />
+                      <span className="mingle-badge match">MATCH</span>
+                    </div>
+                    <div className="mingle-name">{user.username}</div>
+                  </div>
+                ))}
+                
+                {/* Show admirers next */}
+                {admirers.map(admirerId => {
+                  const user = participants.find(p => parseInt(p.id) === parseInt(admirerId));
+                  if (!user) return null;
+                  
+                  return (
+                    <div 
+                      key={user.id} 
+                      className={`mingle-item ${theme} ${selectedMatch === user.id ? 'selected' : ''} admirer`}
+                      onClick={() => viewMatch(user)}
+                    >
+                      <div className="mingle-avatar">
+                        <img 
+                          src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} 
+                          alt={user.username}
+                        />
+                        <span className="mingle-badge admirer">ADMIRER</span>
+                      </div>
+                      <div className="mingle-name">{user.username}</div>
+                    </div>
+                  );
+                })}
+                
+                {/* Show other potential matches */}
+                {potentialMatches
+                  .filter(user => !matches.includes(user.id) && !admirers.includes(user.id))
+                  .map(user => (
+                    <div 
+                      key={user.id} 
+                      className={`mingle-item ${theme} ${selectedMatch === user.id ? 'selected' : ''}`}
+                      onClick={() => viewMatch(user)}
+                    >
+                      <div className="mingle-avatar">
+                        <img 
+                          src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} 
+                          alt={user.username}
+                        />
+                        {selectedMatch === user.id && (
+                          <span className="mingle-badge selected">SELECTED</span>
+                        )}
+                      </div>
+                      <div className="mingle-name">{user.username}</div>
+                    </div>
+                  ))}
+              </div>
+              
+              <div className="mingle-details">
+                {selectedMatch ? (
+                  <>
+                    <div className="mingle-detail-header">
+                      <img 
+                        src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${selectedMatch.avatar}`} 
+                        alt={selectedMatch.username}
+                        className="mingle-detail-avatar"
+                      />
+                      <h4>{selectedMatch.username}</h4>
+                      <p>Age: {selectedMatch.age || 'Unknown'}</p>
+                      <p>Location: {selectedMatch.location || 'Unknown'}</p>
+                    </div>
+                    
+                    <div className="mingle-detail-bio">
+                      {selectedMatch.bio || 'No bio available'}
+                    </div>
+                    
+                    <div className="mingle-actions">
+                      <button 
+                        className={`mingle-action-btn choose ${theme}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          chooseMatch(selectedMatch);
+                        }}
+                        disabled={!selectedMatch}
+                      >
+                        Choose
+                      </button>
+                      <button 
+                        className={`mingle-action-btn ignore ${theme}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          ignoreMatch(selectedMatch);
+                        }}
+                        disabled={!selectedMatch}
+                      >
+                        Ignore
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mingle-empty-state">
+                    <p>Select someone from the list to see their details</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 export default ClubChatScreen;
 // ***********************

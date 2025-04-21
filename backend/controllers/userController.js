@@ -172,7 +172,7 @@ exports.updateUser = async (req, res) => {
 
     // Handle avatar upload
     if (req.file) {
-      user.avatar = `/uploads/${req.file.filename}`;
+      user.avatar = `/uploads/avatar/${req.file.filename}`;
     }
 
     await user.save();
@@ -192,7 +192,7 @@ exports.updateUser = async (req, res) => {
     if (req.file) {
       const fs = require('fs');
       const path = require('path');
-      const filePath = path.join(__dirname, '../uploads', req.file.filename);
+      const filePath = path.join(__dirname, '../uploads/avatar', req.file.filename);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }

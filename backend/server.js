@@ -16,6 +16,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const agoraRoutes = require('./routes/agoraRoutes');
+const mingleRoutes = require('./routes/mingleRoutes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const uploadMiddleware = require('./middlewares/uploadMiddleware');
 const fs = require('fs');
@@ -43,7 +44,7 @@ const webRTCService = new WebRTCService(io);
 const corsOptions = {
   origin: process.env.CORS_ORIGIN 
     ? process.env.CORS_ORIGIN.split(',') 
-    : 'http://192.168.85.117:3000',
+    : 'http://192.168.8.101:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -125,7 +126,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/agora', agoraRoutes);
-
+app.use('/api/mingle', (mingleRoutes)(io));
 app.use(errorMiddleware);
 
 // Track all connected users
@@ -349,6 +350,68 @@ io.on('connection', (socket) => {
       }
     }
     console.log(`User disconnected: ${socket.id}`);
+  });
+
+  // Mingle handler
+  socket.on('mingle-toggle', async ({ userId, isMingling }) => {
+    try {
+      // Notify room participants about mingle status change
+      if (socket.roomId) {
+        io.to(socket.roomId).emit('mingle-status-changed', { userId, isMingling });
+      }
+      
+      // If user started mingling, notify potential matches
+      if (isMingling) {
+        const user = await db.user.findByPk(userId);
+        if (user) {
+          // Find opposite gender users who are mingling and have this user in their potential matches
+          const potentialAdmirers = await db.user.findAll({
+            include: [{
+              model: db.mingleStatus,
+              where: { isMingling: true },
+              required: true
+            }],
+            where: {
+              gender: user.gender === 'male' ? 'female' : 'male'
+            }
+          });
+          
+          // Notify each potential admirer
+          potentialAdmirers.forEach(admirer => {
+            if (connectedUsers.has(admirer.id)) {
+              io.to(connectedUsers.get(admirer.id)).emit('potential-match-available', {
+                userId: user.id,
+                username: user.username
+              });
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error handling mingle toggle:', error);
+    }
+  });
+
+  socket.on('mingle-choose', async ({ chooserId, chosenId }) => {
+    try {
+      // Notify the chosen user
+      if (connectedUsers.has(chosenId)) {
+        io.to(connectedUsers.get(chosenId)).emit('mingle-chosen', { chooserId });
+      }
+    } catch (error) {
+      console.error('Error handling mingle choose:', error);
+    }
+  });
+
+  socket.on('mingle-ignore', async ({ chooserId, chosenId }) => {
+    try {
+      // Notify the ignored user
+      if (connectedUsers.has(chosenId)) {
+        io.to(connectedUsers.get(chosenId)).emit('mingle-ignored', { chooserId });
+      }
+    } catch (error) {
+      console.error('Error handling mingle ignore:', error);
+    }
   });
 });
 

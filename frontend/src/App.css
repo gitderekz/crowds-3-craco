@@ -525,12 +525,13 @@
     flex-direction: column;
     gap: 15px;
     height: calc(90vh - 200px);
-    overflow-y: auto;
-    padding-right: 10px;
+    /* overflow-y: auto; */
+    /* padding-right: 10px; */
   }
 
   .form-columns {
     display: flex;
+    width: 100%;
     gap: 20px;
     flex: 1;
     overflow-y: auto;
@@ -559,6 +560,7 @@
   .form-group input,
   .form-group select,
   .form-group textarea {
+    width: 90%;
     padding: 8px 12px;
     border: 1px solid #d3d3d3;
     border-radius: 4px;
@@ -649,16 +651,6 @@
     margin-bottom: 15px;
     align-self: flex-start;
   }
-
-  .password-change-section {
-    margin-top: 4px;
-    padding-top: 4px;
-    border-top: 1px solid #eee;
-  }
-  
-  .dark .password-change-section {
-    border-top-color: #444;
-  }
   
   .password-hint {
     font-size: 12px;
@@ -710,7 +702,7 @@
     padding: 10px 20px;
     border-radius: 20px;
     cursor: pointer;
-    margin-top: 20px;
+    /* margin-top: 20px; */
     font-weight: bold;
   }
 
@@ -771,6 +763,16 @@
 
     .avatar-upload {
       flex-direction: column;
+    }
+
+    .password-change-section {
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid #eee;
+    }
+    
+    .dark .password-change-section {
+      border-top-color: #444;
     }
   }
   /* END SETTINGS */
@@ -1111,20 +1113,29 @@
     margin-bottom: 8px;
   }
 
+  .event-title-overlay,
   .event-title,
   .members-title,
   .address-details span,
   .place-category,
   .services-list li span {
     display: block;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     margin-bottom: 2px;
   }
 
+  .event-time-overlay,
   .event-time,
   .members-count {
     display: block;
+    font-size: 14px;
+  }
+
+  .event-title-overlay{
+    font-size: 12px;
+  }  
+  .event-time-overlay{
     font-size: 11px;
   }
 
@@ -1270,6 +1281,273 @@
     font-weight: bold;
     margin-left: 4px;
   }
+  .admirer {
+    font-weight: bold;
+    margin-left: 4px;
+  }
+
+  /* MINGLE */
+  /* Mingle Modal Styles */
+  .mingle-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+  }
+
+  .mingle-modal {
+    background: white;
+    width: 80%;
+    max-width: 900px;
+    height: 80vh;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .mingle-modal.dark {
+    background: #2c2c2c;
+    color: #e0e0e0;
+  }
+
+  .mingle-header {
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+  }
+
+  .mingle-header.dark {
+    border-bottom-color: #444;
+  }
+
+  .mingle-header button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  .mingle-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .mingle-list {
+    width: 40%;
+    overflow-y: auto;
+    padding: 15px;
+    border-right: 1px solid #eee;
+  }
+
+  .mingle-list.dark {
+    border-right-color: #444;
+  }
+
+  .mingle-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .mingle-item.light {
+    background: #f8f9fa;
+  }
+
+  .mingle-item.dark {
+    background: #3a3a3a;
+  }
+
+  .mingle-item:hover {
+    transform: scale(1.05);
+  }
+
+  .mingle-item.selected {
+    border: 2px solid var(--primary-color);
+  }
+
+  .mingle-item.match {
+    border: 2px solid var(--primary-color);
+    animation: glow 2s infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 5px white;
+    }
+    to {
+      box-shadow: 0 0 20px white;
+    }
+  }
+
+  .mingle-avatar {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 5px;
+  }
+
+  .mingle-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mingle-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 12px;
+    text-align: center;
+    padding: 2px;
+  }
+
+  .mingle-badge.admirer {
+    background: #FFD700; /* Gold */
+    color: black;
+  }
+
+  .mingle-badge.match {
+    background: white;
+    color: black;
+  }
+
+  .mingle-badge.selected {
+    background: var(--primary-color);
+  }
+
+  .mingle-name {
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .mingle-details {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .mingle-detail-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .mingle-detail-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 10px;
+    border: 3px solid var(--primary-color);
+  }
+
+  .mingle-detail-bio {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .mingle-detail-bio.dark {
+    background: #3a3a3a;
+  }
+
+  .mingle-actions {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .mingle-action-btn {
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+  }
+
+  .mingle-action-btn.choose {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .mingle-action-btn.choose:hover:not(:disabled) {
+    background: #3bb6a7;
+    transform: scale(1.05);
+  }
+
+  .mingle-action-btn.ignore {
+    background: #f44336;
+    color: white;
+  }
+
+  .mingle-action-btn.ignore:hover:not(:disabled) {
+    background: #e53935;
+    transform: scale(1.05);
+  }
+
+  .mingle-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    /* background-color: dimgray; */
+  }
+
+  .mingle-empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    opacity: 0.7;
+  }
+
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .mingle-modal {
+      width: 95%;
+      height: 90vh;
+    }
+    
+    .mingle-content {
+      flex-direction: column;
+    }
+    
+    .mingle-list {
+      width: 100%;
+      height: 40%;
+      border-right: none;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .mingle-list.dark {
+      border-bottom-color: #444;
+    }
+    
+    .mingle-details {
+      height: 60%;
+    }
+  }
+  /* END MINGLE */
 
   .messages-container {
     display: flex;
@@ -1286,6 +1564,7 @@
   .message {
     margin-bottom: 15px;
     max-width: 70%;
+    overflow-wrap:break-word;
   }
 
   .message.sent {
@@ -1880,6 +2159,43 @@
   }
 
   /* Buttons */
+  .attendance-btn.mingle {
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .attendance-btn.mingle.active {
+    background: var(--primary-color);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  }
+  
+  .attendance-btn.mingle.active .admirer {
+    background: #ffcc00;
+    color: #333;
+    padding: 2px 6px;
+    border-radius: 50%;
+    font-size: 0.8em;
+    margin-left: 5px;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  
+  .attendance-btn.mingle.light {
+    background: #faf9d1;
+    color: #d32f2f;
+  }
+  .attendance-btn.mingle.dark {
+    background: #8c7850;/*2b5c5a,2b5c5b*/
+    color: white;
+  }
+
   .emoji-btn.light,
   .send-button.light,
   .attendance-btn.present.light,
@@ -1898,11 +2214,11 @@
   .attendance-btn.present {
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
+
   .attendance-btn.absent.light {
     background: #fad1d1;
     color: #d32f2f;
   }
-
   .attendance-btn.absent.dark {
     background: #5c2b2b;
     color: #ff8a80;
@@ -2128,13 +2444,20 @@
       display: flex;
       flex-direction: column;
       height: 100%;
-      width: 90%;
+      width: 100%;
       /* position: absolute; */
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
       overflow-y: auto;
+    }
+
+    .participants-list{
+      margin-right: 10%;
+    }
+    .info-card {
+      margin-right: auto;
     }
 
   }

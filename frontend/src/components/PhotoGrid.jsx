@@ -220,16 +220,16 @@ const PhotoGrid = ({ photos, activeCategoryName }) => {
               {/* Left Event Overlay */}
               <div className="event-overlay">
                 <div className="event-current">
-                  <span className="event-title">Current</span>
+                  <span className="event-title-overlay">Current</span>
                   {/* <span className="event-time">10:00 AM - Yoga</span> */}
-                  <span className="event-time">
+                  <span className="event-time-overlay">
                     {photo.currentEvent?.time??'10:00 AM'} - {photo.currentEvent?.name??'Yoga'}
                   </span>
                 </div>
                 <div className="event-next">
-                  <span className="event-title">Next</span>
+                  <span className="event-title-overlay">Next</span>
                   {/* <span className="event-time">11:30 AM - Pilates</span> */}
-                  <span className="event-time">
+                  <span className="event-time-overlay">
                     {photo.nextEvent?.time??'11:30 AM'} - {photo.nextEvent?.name??"Pilates"}
                   </span>
                 </div>

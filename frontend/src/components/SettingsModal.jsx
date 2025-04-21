@@ -55,6 +55,8 @@ const SettingsModal = ({ onClose, userId }) => {
                   headers:{ Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
               }
           );
+          console.log("photosResponse.data",photosResponse.data);
+          
           setPhotos(photosResponse.data);
   
           // Initialize photo settings if photos exist
@@ -410,7 +412,7 @@ const SettingsModal = ({ onClose, userId }) => {
                     <div className="section-title">
                       <FaCalendarAlt /> Schedule
                     </div>
-                    {JSON.parse(photoSettings.schedule).map((item, index) => (
+                    {photos.schedule?JSON.parse(photos.schedule)?.map((item, index) => (
                       <div key={index} className="schedule-item">
                         <input
                           type="text"
@@ -432,7 +434,7 @@ const SettingsModal = ({ onClose, userId }) => {
                           ×
                         </button>
                       </div>
-                    ))}
+                    )):''}
                     <button
                       type="button"
                       className="add-button"
@@ -444,7 +446,7 @@ const SettingsModal = ({ onClose, userId }) => {
                     <div className="section-title">
                       <FaListUl /> Services
                     </div>
-                    {JSON.parse(photoSettings.services).map((service, index) => (
+                    {photos.services?JSON.parse(photos.services)?.map((service, index) => (
                       <div key={index} className="service-item">
                         <input
                           type="text"
@@ -460,7 +462,7 @@ const SettingsModal = ({ onClose, userId }) => {
                           ×
                         </button>
                       </div>
-                    ))}
+                    )):''}
                     <button
                       type="button"
                       className="add-button"
@@ -480,7 +482,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="name"
-                        value={JSON.parse(photoSettings.location).name}
+                        value={photos.location?JSON.parse(photos.location)?.name:''}
                         onChange={handleLocationChange}
                         placeholder="Venue Name"
                       />
@@ -490,7 +492,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="street"
-                        value={JSON.parse(photoSettings.location).street}
+                        value={photos.location?JSON.parse(photos.location)?.street:''}
                         onChange={handleLocationChange}
                         placeholder="123 Main Street"
                       />
@@ -500,7 +502,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="building"
-                        value={JSON.parse(photoSettings.location).building}
+                        value={photos.location?JSON.parse(photos.location)?.building:''}
                         onChange={handleLocationChange}
                         placeholder="Building A"
                       />
@@ -510,7 +512,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="geoLocation"
-                        value={JSON.parse(photoSettings.location).geoLocation}
+                        value={photos.location?JSON.parse(photos.location)?.geoLocation:''}
                         onChange={handleLocationChange}
                         placeholder="40.7128° N, 74.0060° W"
                       />
@@ -529,7 +531,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       />
                     </div>
                     <div className="gallery-preview">
-                      {JSON.parse(photoSettings.gallery).map((image, index) => (
+                      {photos.location?JSON.parse(photos.gallery)?.map((image, index) => (
                         <div key={index} className="gallery-item">
                           {typeof image === 'string' ? (
                             <img
@@ -547,7 +549,7 @@ const SettingsModal = ({ onClose, userId }) => {
                             ×
                           </button>
                         </div>
-                      ))}
+                      )):''}
                     </div>
                   </div>
                 </div>

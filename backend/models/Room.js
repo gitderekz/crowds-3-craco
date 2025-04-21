@@ -5,6 +5,10 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
       autoIncrement: true,
     },
+    presentUsers: {
+      type: DataTypes.ARRAY(DataTypes.INTEGER),
+      defaultValue: []
+    },
     photoId: {
       type: DataTypes.INTEGER,
       // primaryKey: true,

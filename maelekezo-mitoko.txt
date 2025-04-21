@@ -684,126 +684,100 @@ It uses style from both app.css and  PhotoModal.css
 here is the photomodal.jsx
 
 Here is the PhotoModal.css
-.modal-content {
-    background: #ffffff; /* Light Mode Card Background */
-    color: #333333; /* Light Mode Text Color */
-    width: 60%; /* Default width for large screens */
-    height: 60%; /* Default height for large screens */
-    margin: auto;
-    border-radius: 10px;
-    overflow: hidden;
-    display: flex;
-    justify-content: space-between;
-    position: relative; /* Ensures the close icon stays in place */
-}
-
-.photo-modal img {
-    width: 100%;
-    max-width: 100%;
-    height: auto;
-    max-height: 80vh;  /* Max height as a percentage of the viewport height */
-    object-fit: contain;  /* This will ensure the image does not stretch */
-    margin: 0 auto;  /* Center the image */
-    display: block;  /* Remove the default inline display property of the image */
-}
-
-.details h2 {
-    color: #333333; /* Light Mode Text */
-}
-
-.details p {
-    color: #555555; /* Light Gray Text */
-}
-
-.like-section p {
-    color: #333333; /* Light Mode Text */
-}
-
-.fa-heart.modal {
-    /*color: #e74c3c; /* Red Heart */
-}
-
-.fa-heart.modal.liked {
-    /*color: #4fd1c5; /* Neon Blue when liked */
-}
-
-.buttons a {
-    background: #4fd1c5; /* Neon Blue */
-    color: #ffffff; /* White Text */
-}
-
-.close-icon {
-    color: #333333; /* Close icon color */
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    cursor: pointer; /* Ensure the close button is clickable */
-}
-
-.close-icon:hover {
-    color: #ff5f5f; /* Soft Coral on hover */
-}
-
-/* Dark Mode Colors */
-.dark .photo-modal {
-    background: rgba(0, 0, 0, 0.8); /* Darker overlay */
-}
-
-.dark .modal-content {
-    background: #2c2c2c; /* Dark Background */
-    color: #e0e0e0; /* Light Text Color */
-}
-
-.dark .details h2 {
-    color: #e0e0e0; /* Light Text Color */
-}
-
-.dark .details p {
-    color: #ccc; /* Light Gray Text */
-}
-
-.dark .like-section p {
-    color: #e0e0e0; /* Light Gray Text */
-}
-
-.dark .fa-heart.modal {
-    /*color: #e74c3c; /* Red Heart */
-}
-
-.dark .fa-heart.modal.liked {
-    /*color: #4fd1c5; /* Neon Blue when liked */
-}
-
-.dark .buttons a {
-    background: #4fd1c5; /* Neon Blue */
-    color: #121212; /* Deep Charcoal Text */
-}
-
-.dark .close-icon {
-    color: #e0e0e0; /* Light Gray */
-}
-
-.dark .close-icon:hover {
-    color: #ff5f5f; /* Soft Coral on hover */
-}
-
-/* For larger screens */
-@media (min-width: 768px) {
-    .modal-content {
-        width: 60%; /* For larger screens, use 60% width */
-        height: 60%; /* Fixed height for larger screens */
-        overflow-y: hidden; /* Disable scroll for larger screens */
-    }
-}
-
 
 And here is app.css
 
-services-section
-services-list
+------AGORA----
+This is my other project which has groupcall and paircall that uses 
+config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
+
+There are two categories of video calls group(ClubChatScreen) and pair(PrivateChatScreen)
+here is the project flow
+
+app.jsx
+
+useSound.jsx
+
+frontend/src/pages/ClubChatScreen.jsx
+
+frontend/src/pages/PrivateChatScreen.jsx
+
+VideoCall.jsx
+
+backend/server.js
 
 
 
+Now without destroying the current logic lets implement that AGORA method in here
+I want to be able to switch which method is going to be used for video calls, Aim is to create redundacy
+
+
+-----END AGORA-----
+
+--MINGLE - JUMUIKA
+Now i want to implement "mingle" feature on ClubChatScreen.jsx, where users will click on a "mingle" button they let themselves be seen in the list of people seeking for a company then it will pop a list 
+of all opposite sex members who also clicked the "mingle" button so he/she can select one, 
+
+This popup on the left should display list of small rounded picture with its name overlay on the bicture's bottom, 
+On the top of this list should be the people who has chosen the current loged in user if any, these should have an overlaying (yellow)badge "admirer"
+Then on the right section should reveal more details for a selected person from list on the left for chooser to view.
+After the details of the person on the bottom there should be buttons "choose"  & "ignore"(disabled by default until/unless person is chosen),
+
+After chosing one person the other people on the list should now be displayed on a faint/disabled color except for the chosen one just to indicate and this chosen one should appear at the very top of list.
+The limit to choose is only one which means if you choose another person then the previous one should be ignored for the current one, 
+
+After a person chooses and there were admirer(s) who were not chosen then the admirer should see (red)badge "ignored" on that person 
+to help them move on and choose another person, Also all the list now should use active color because no one is selected
+
+If the two people have chosen each other then it is a match, these people should have a (white)badge "taken", They should appear on the very top
+of each others list glowing white border around. But still people can choose them since they can also change their mind and choose another person
+
+The chosen person should receive notification of being chosen,
+
+NOTE: dont forget to suggest database table structure for this operation, I already have users table
+
+
+
+
+
+--Going - present - 
+The present button should only work once and be disabled (user can only upvote/downvote his/her presence once)
+The absent button should work only if the current user is present, it should also work once then get disabled
+The increment/decrement of participants should be across the whole app, These events should be broadcasted realtime for everone in group/club to see number of people present.
+When present is disabled absent should be enabled, and viceversa
+
+--otp/link
+--map
+
+Here are some of my codes
+app.jsx
+header.jsx
+photo.jsx
+PhotoGrid.jsx
+frontend/src/pages/ClubChatScreen.jsx
+backend/server.js
+app.css
+
+
+-----------
+
+Woooh! it is working now i we can see each other and talk to each other
+Now lets solve these other issues
+-i dont want to display the user id for other members but their names (user.username)
+-the call is not stable/inconsistent to handle all participants sometimes they join 3 but only 2 can see each others 
+and sometimes none see each other until the cancel and call again
+maybe you can add loading to make sure all are available
+-most of time the person who initiated the call is unable to see/connect to others, but the others can see each others. So this person needs to 
+hang up and then join the call again(pretty crazy)
+
+I really need consistency in members joining the call
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 IMPORTANT!, Don't give codes in chunk, give me back the full modified working codes and where exactly to put each code given, 
 (don't remove comments and unused variables if they are there)
 Here is project strucure
@@ -818,19 +792,9 @@ crowds
   -frontend
     -src
     -public
+    
 ```````````````````````
 USERNAME: FElly
 PASSWORD: E-ODranya
 Username: Koboko
 password: 12345
-
-Woooh! it is working now i we can see each other and talk to each other
-Now lets solve these other issues
--i dont want to display the user id for other members but their names (user.username)
--the call is not stable/inconsistent to handle all participants sometimes they join 3 but only 2 can see each others 
-and sometimes none see each other until the cancel and call again
-maybe you can add loading to make sure all are available
--most of time the person who initiated the call is unable to see/connect to others, but the others can see each others. So this person needs to 
-hang up and then join the call again(pretty crazy)
-
-I really need consistency in members joining the call

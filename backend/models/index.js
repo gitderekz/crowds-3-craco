@@ -7,7 +7,9 @@ const category = require('./Category');
 const message = require('./Message');
 const room = require('./Room');
 const roomuser = require('./RoomUser');
-const refresh_token = require('./RefreshToken')
+const refresh_token = require('./RefreshToken');
+const mingleStatus = require('./MingleStatus');
+const mingleChoice = require('./MingleChoice');
 
 // const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
 //   host: dbConfig.HOST,
@@ -32,6 +34,8 @@ const db = {
   room: room(sequelize, Sequelize),
   roomuser: roomuser(sequelize, Sequelize),
   refresh_token: refresh_token(sequelize, Sequelize),
+  mingleStatus: mingleStatus(sequelize, Sequelize),
+  mingleChoice: mingleChoice(sequelize, Sequelize),
 };
 
 // Define associations
@@ -99,6 +103,46 @@ db.user.belongsToMany(db.room, {
   foreignKey: 'userId', 
   otherKey: 'roomId',
   as: 'rooms'
+});
+
+// MINGLE
+// User to MingleStatus (one-to-one)
+db.user.hasOne(db.mingleStatus, {
+  foreignKey: 'userId',
+  as: 'mingleStatus',
+  onDelete: 'CASCADE'
+});
+
+db.mingleStatus.belongsTo(db.user, {
+  foreignKey: 'userId',
+  as: 'user',
+  onDelete: 'CASCADE'
+});
+
+// User to MingleChoice as chooser (one-to-many)
+db.user.hasMany(db.mingleChoice, {
+  foreignKey: 'chooserId',
+  as: 'choicesMade',
+  onDelete: 'CASCADE'
+});
+
+db.mingleChoice.belongsTo(db.user, {
+  foreignKey: 'chooserId',
+  as: 'chooser',
+  onDelete: 'CASCADE'
+});
+
+// User to MingleChoice as chosen (one-to-many)
+db.user.hasMany(db.mingleChoice, {
+  foreignKey: 'chosenId',
+  as: 'choicesReceived',
+  onDelete: 'CASCADE'
+});
+
+db.mingleChoice.belongsTo(db.user, {
+  foreignKey: 'chosenId',
+  as: 'chosen',
+  onDelete: 'CASCADE'
 });
 
 module.exports = db;

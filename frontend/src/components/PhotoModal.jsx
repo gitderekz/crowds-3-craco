@@ -123,10 +123,10 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
               <div className="address-section">
                 <b><FaMapMarkerAlt /> Address</b>
                 <div className="address-details">
-                  <span>Name: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.name || address.name}</i></span>
-                  <span>Street: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.street || address.street}</i></span>
-                  <span>Building: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.building || address.building}</i></span>
-                  <span>Location: <i style={{"fontSize":"11px","fontWeight":"normal"}}>{JSON.parse(photo.location)?.geoLocation || address.geoLocation}</i></span>
+                  <span>Name: <i style={{"fontWeight":"normal"}}>{JSON.parse(photo.location)?.name || address.name}</i></span>
+                  <span>Street: <i style={{"fontWeight":"normal"}}>{JSON.parse(photo.location)?.street || address.street}</i></span>
+                  <span>Building: <i style={{"fontWeight":"normal"}}>{JSON.parse(photo.location)?.building || address.building}</i></span>
+                  <span>Location: <i style={{"fontWeight":"normal"}}>{JSON.parse(photo.location)?.geoLocation || address.geoLocation}</i></span>
                 </div>
               </div>
 
@@ -146,7 +146,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                     {
                       photo.schedule?
                       JSON.parse(photo.schedule)?.map((event, index)=>(
-                        <span key={index} className="info-value">{event.time}-{event.event}<br /></span>
+                        <span key={index} className="info-value">{event.time} - {event.event}<br /></span>
                       )):"No events"
                     }
                   </span>
