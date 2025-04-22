@@ -7,7 +7,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     presentUsers: {
       type: DataTypes.ARRAY(DataTypes.INTEGER),
-      defaultValue: []
+      defaultValue: [], // Initialize as empty array
+      allowNull: false
     },
     photoId: {
       type: DataTypes.INTEGER,

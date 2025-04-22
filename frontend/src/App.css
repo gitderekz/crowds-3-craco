@@ -1381,7 +1381,7 @@
   }
 
   .mingle-item.match {
-    border: 2px solid var(--primary-color);
+    /* border: 2px solid var(--primary-color); */
     animation: glow 2s infinite alternate;
   }
 
@@ -1421,14 +1421,102 @@
     padding: 2px;
   }
 
-  .mingle-badge.admirer {
-    background: #FFD700; /* Gold */
-    color: black;
+  /* Glowing match effect */
+  .glow {
+    animation: glow 1.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #4CAF50, 0 0 20px #4CAF50;
+    }
+    to {
+      text-shadow: 0 0 10px #fff, 0 0 20px #4CAF50, 0 0 30px #4CAF50, 0 0 40px #4CAF50;
+    }
+  }
+
+  .glowing-match {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    animation: glow 1.5s ease-in-out infinite alternate;
+  }
+
+  .glowing-match-indicator {
+    margin-right: 8px;
+    animation: glow 1.5s ease-in-out infinite alternate;
+  }
+
+  .match-indicator {
+    /* display: flex; */
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .battery-full, .check-mark {
+    filter: drop-shadow(0 0 5px #00ff00);
+    animation: glow-green 1.5s infinite alternate;
+  }
+  
+  .battery-half {
+    filter: drop-shadow(0 0 5px #ffff00);
+  }
+  
+  @keyframes glow-green {
+    from { opacity: 0.8; }
+    to { opacity: 1; }
+  }
+  
+  .match {
+    color: #00ff00;
+    text-shadow: 0 0 5px #00ff00;
+    animation: glow-text 1.5s infinite alternate;
   }
 
   .mingle-badge.match {
-    background: white;
-    color: black;
+    background: #4CAF50;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .mingle-item.admired {
+    background-color: #00ff001b;/*#00ff00;*/
+    /* border: 2px solid var(--primary-color); */
+    animation: glow 2s infinite alternate;
+  }
+
+  .mingle-item.admirer {
+    /* border: 2px solid var(--primary-color); */
+    animation: glow 2s infinite alternate;
+  }
+
+  .mingle-badge.admirer {
+    background: #c4ba4d; /* Gold */
+    color: white;
+    padding: 2px 5px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .glowing-admirer-indicator {
+    margin-right: 8px;
+    animation: glow-yellow 1.5s ease-in-out infinite alternate;
+    color: #FFD700;
+  }
+
+  @keyframes glow-yellow {
+    from {
+      text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #FFD700, 0 0 20px #FFD700;
+    }
+    to {
+      text-shadow: 0 0 10px #fff, 0 0 20px #FFD700, 0 0 30px #FFD700, 0 0 40px #FFD700;
+    }
   }
 
   .mingle-badge.selected {
@@ -1436,6 +1524,8 @@
   }
 
   .mingle-name {
+    display: flex;
+    gap: 10px;
     font-weight: bold;
     text-align: center;
   }
@@ -1529,22 +1619,38 @@
     }
     
     .mingle-content {
+      display: flex;
+      align-items: center;
       flex-direction: column;
+      padding: 5px 0px;
     }
     
     .mingle-list {
-      width: 100%;
+      /* display: flex;
+      flex-direction: row; */
+      width: 90%;
       height: 40%;
+      padding: 10px;
       border-right: none;
       border-bottom: 1px solid #eee;
     }
-    
+
+    .mingle-item{
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      padding: 5px 2px;
+    }    
+
     .mingle-list.dark {
       border-bottom-color: #444;
     }
     
     .mingle-details {
-      height: 60%;
+      height: 100%;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
     }
   }
   /* END MINGLE */

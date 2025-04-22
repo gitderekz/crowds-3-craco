@@ -126,14 +126,22 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/agora', agoraRoutes);
-app.use('/api/mingle', (mingleRoutes)(io));
-app.use(errorMiddleware);
 
 // Track all connected users
 const connectedUsers = new Map();
+app.use('/api/mingle', (mingleRoutes)(io, connectedUsers));
+app.use(errorMiddleware);
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
+  
+  // Add this handler for mingle room joining
+  socket.on('join-mingle-room', (userId) => {
+    if (userId) {
+      socket.join(`mingle-${userId}`); // Each user gets their own room
+      console.log(`User ${userId} joined their mingle room`);
+    }
+  });
   
   socket.on('signal', ({ signal, to, from, roomId }) => {
     if (connectedUsers.has(to)) {
@@ -413,6 +421,37 @@ io.on('connection', (socket) => {
       console.error('Error handling mingle ignore:', error);
     }
   });
+
+  socket.on('update-presence', async ({ roomId, userId, isPresent }) => {
+    const room = await db.room.findByPk(roomId);
+    console.log("r=",room.presentUsers);
+    if (!room) {
+      console.error(`Room ${roomId} not found`);
+      return;
+    }
+    let presentUsers = room.presentUsers || [];
+    
+    if (isPresent) {
+      if (!presentUsers.includes(userId)) {
+        presentUsers = [...presentUsers, userId];
+      }
+      // presentUsers = [...new Set([...presentUsers, userId])]; // Add if not exists
+    } else {
+      presentUsers = presentUsers.filter(id => id !== userId);
+    }
+    
+    const r = await room.update({ presentUsers:JSON.stringify(presentUsers) });
+    console.log("r=",r);
+    
+    io.to(roomId).emit('presence-updated', { 
+      roomId,
+      presentUsers,
+      userId,
+      isPresent,
+      presentCount: presentUsers.length
+    });
+  });
+
 });
 
 db.sequelize.sync().then(() => {

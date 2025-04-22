@@ -1,4 +1,4 @@
-module.exports = (io) =>{
+module.exports = (io, connectedUsers) =>{
   
 const express = require('express');
 const router = express.Router();
@@ -30,91 +30,127 @@ router.post('/toggle', authenticate, async (req, res) => {
   }
 });
 
-// Get potential matches (opposite sex who are mingling)
-router.get('/potential-matches/:userId', authenticate, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    // Get current user's gender
-    const currentUser = await db.user.findByPk(userId);
-    if (!currentUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Get opposite gender users who are mingling
-    const potentialMatches = await db.user.findAll({
-      include: [{
-        model: db.mingleStatus,
-        where: { isMingling: true },
-        required: true,
-        as:'mingleStatus'
-      }],
-      where: {
-        id: { [Op.ne]: userId },
-        gender: currentUser.gender === 'Male' ? 'Female' : 'Male'
-      }
-    });
-
-    res.json(potentialMatches);
-  } catch (error) {
-    console.error('Error getting potential matches:', error);
-    res.status(500).json({ message: 'Error getting potential matches' });
-  }
-});
-
 // Choose a match
 router.post('/choose', authenticate, async (req, res) => {
+  const { chooserId, chosenId } = req.body;
+  const t = await db.sequelize.transaction(); // Start transaction
+
   try {
-    const { chooserId, chosenId } = req.body;
-    
+    // Validation checks
+    if (chooserId === chosenId) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Cannot choose yourself' });
+    }
+
     // Check if chosen user is mingling
     const isMingling = await db.mingleStatus.findOne({
-      where: { userId: chosenId, isMingling: true }
+      where: { userId: chosenId, isMingling: true },
+      transaction: t
     });
     
     if (!isMingling) {
+      await t.rollback();
       return res.status(400).json({ message: 'This user is not currently mingling' });
     }
 
-    // Create or update choice
-    const [choice, created] = await db.mingleChoice.findOrCreate({
-      where: { chooserId, chosenId },
-      defaults: { status: 'pending' }
+    // Find any existing relationships in either direction
+    const existingRelationships = await db.mingleChoice.findAll({
+      where: {
+        [Op.or]: [
+          { chooserId, chosenId },
+          { chooserId: chosenId, chosenId: chooserId }
+        ]
+      },
+      transaction: t
     });
 
-    if (!created) {
-      choice.status = 'pending';
-      await choice.save();
+    let isMatch = false;
+    let status = 'pending';
+
+    // Case 1: Already matched
+    const existingMatch = existingRelationships.find(r => r.status === 'matched');
+    if (existingMatch) {
+      await t.rollback();
+      return res.json({ 
+        status: 'matched',
+        isMatch: true 
+      });
     }
 
-    // Check if it's a match (both have chosen each other)
-    const reciprocalChoice = await db.mingleChoice.findOne({
-      where: { chooserId: chosenId, chosenId: chooserId }
-    });
+    // Case 2: Existing pending relationship in either direction
+    if (existingRelationships.length > 0) {
+      const reciprocalChoice = existingRelationships.find(r => 
+        r.chooserId === chosenId && r.chosenId === chooserId
+      );
 
-    if (reciprocalChoice && reciprocalChoice.status === 'pending') {
-      // It's a match!
-      choice.status = 'matched';
-      reciprocalChoice.status = 'matched';
-      await Promise.all([choice.save(), reciprocalChoice.save()]);
-      
-      // Notify both users via socket
-      io.to(connectedUsers.get(chooserId)).emit('mingle-match', { 
+      if (reciprocalChoice) {
+        // It's a match - update both records
+        await Promise.all([
+          db.mingleChoice.update(
+            { status: 'matched' },
+            { 
+              where: { id: reciprocalChoice.id },
+              transaction: t 
+            }
+          ),
+          // Update or create the reverse relationship
+          db.mingleChoice.update(
+            { status: 'matched' },
+            { 
+              where: { chooserId, chosenId },
+              transaction: t 
+            }
+          )
+        ]);
+        isMatch = true;
+        status = 'matched';
+      } else {
+        // Just update the existing pending record
+        await db.mingleChoice.update(
+          { status: 'pending' },
+          { 
+            where: { id: existingRelationships[0].id },
+            transaction: t 
+          }
+        );
+      }
+    } 
+    // Case 3: No existing relationship - create new one
+    else {
+      await db.mingleChoice.create({
+        chooserId,
+        chosenId,
+        status: 'pending'
+      }, { transaction: t });
+    }
+
+    // If it's a match, notify both users
+    if (isMatch) {
+      const [chooser, chosen] = await Promise.all([
+        db.user.findByPk(chooserId, { transaction: t }),
+        db.user.findByPk(chosenId, { transaction: t })
+      ]);
+
+      if (!chooser || !chosen) {
+        await t.rollback();
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      io.to(`mingle-${chooserId}`).emit('mingle-match', { 
         matchedUserId: chosenId,
-        matchedUserName: reciprocalChoice.user.username 
+        matchedUserName: chosen.username 
       });
       
-      io.to(connectedUsers.get(chosenId)).emit('mingle-match', { 
+      io.to(`mingle-${chosenId}`).emit('mingle-match', { 
         matchedUserId: chooserId,
-        matchedUserName: choice.user.username 
+        matchedUserName: chooser.username 
       });
     }
 
-    res.json({ 
-      status: choice.status,
-      isMatch: choice.status === 'matched'
-    });
+    await t.commit();
+    res.json({ status, isMatch });
   } catch (error) {
+    await t.rollback();
     console.error('Error choosing match:', error);
     res.status(500).json({ message: 'Error choosing match' });
   }
@@ -135,6 +171,80 @@ router.post('/ignore', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error ignoring match:', error);
     res.status(500).json({ message: 'Error ignoring match' });
+  }
+});
+
+// Get potential matches (opposite sex who are mingling)
+router.get('/potential-matches/:userId', authenticate, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get current user's gender
+    const currentUser = await db.user.findByPk(userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Get all existing choices involving this user
+    const existingChoices = await db.mingleChoice.findAll({
+      where: {
+        [Op.or]: [
+          { chooserId: userId },
+          { chosenId: userId }
+        ]
+      }
+    });
+
+    const excludedIds = [
+      userId,
+      ...existingChoices.map(c => 
+        parseInt(c.chooserId) === parseInt(userId) ? c.chosenId : c.chooserId
+      )
+    ];
+    console.log("excludedIds",excludedIds);
+    
+
+    // Get opposite gender users who are mingling
+    const potentialMatches = await db.user.findAll({
+      include: [{
+        model: db.mingleStatus,
+        where: { isMingling: true },
+        required: true,
+        as:'mingleStatus'
+      }],
+      where: {
+        // id: { [Op.ne]: userId },
+        id: { 
+          [Op.notIn]: excludedIds 
+        },
+        gender: currentUser.gender === 'Male' ? 'Female' : 'Male'
+      }
+    });
+
+    res.json(potentialMatches);
+  } catch (error) {
+    console.error('Error getting potential matches:', error);
+    res.status(500).json({ message: 'Error getting potential matches' });
+  }
+});
+
+// Get admired
+router.get('/admired/:userId', async (req, res) => {
+  try {
+    const admired = await db.mingleChoice.findAll({
+      where: {
+        chooserId: req.params.userId,
+        status: 'pending'
+      },
+      include: [{
+        model: db.user,
+        as: 'chosen',
+        attributes: ['id', 'username', 'avatar']
+      }]
+    });
+    res.json(admired.map(a => a.chosen));
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching admirers' });
   }
 });
 
