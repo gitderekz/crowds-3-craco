@@ -14,6 +14,8 @@ import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
 import VideoCall from '../components/media/VideoCall';
 import {useVideoCall} from '../contexts/VideoCallContext'
+import './Toggle.css'
+import './MingleModal.css'
 
 const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }) => {
   const [isMingling, setIsMingling] = useState(false);
@@ -23,9 +25,12 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const [matches, setMatches] = useState([]);
   const [admired, setAdmired] = useState([]);
   const [admirers, setAdmirers] = useState([]);
+  const [allAdmirers, setAllAdmirers] = useState([]);
   const [isPresent, setIsPresent] = useState(false);
-  const [presentCount, setPresentCount] = useState(0);
+  const [attendeesCount, setAttendeesCount] = useState(0);
+  const [loadingPresence, setLoadingPresence] = useState(true);
   const [viewType, setViewType] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const { theme } = useContext(ThemeContext);
   const socket = useContext(SocketContext);
@@ -72,69 +77,44 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const [callType, setCallType] = useState(null);
   const { callTechnology, toggleCallTechnology } = useVideoCall();
 
-
-  // Handle incoming calls
+  // Fetch initial presence data & all admirers when component mounts
   useEffect(() => {
-    if (!socket) return;
-
-    const handleIncomingCall = (callData) => {
-      if (callData.roomId === room.photoId) {
-        // playCall();
-        const confirmCall = window.confirm(`Incoming ${callData.callType} call. Accept?`);
-        if (confirmCall) {
-          setCallType(callData.callType);
-          setInCall(true);
-          socket.emit('call-response', {
-            response: 'accepted',
-            callerId: callData.callerId,
-            calleeId: currentUserId,
-            roomId: callData.roomId
-          });
-        } else {
-          socket.emit('call-response', {
-            response: 'rejected',
-            callerId: callData.callerId,
-            calleeId: currentUserId,
-            roomId: callData.roomId
-          });
-        }
-        setIncomingCall(null);
+    const fetchInitialPresence = async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/presence`,
+          {
+            headers: { 
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}` 
+            }
+          }
+        );
+        
+        setAttendeesCount(response.data.presentCount);
+        setAttendees(response.data.presentUsers);
+        setIsPresent(response.data.presentUsers.includes(parseInt(currentUserId)));
+      } catch (error) {
+        console.error('Error fetching initial presence:', error);
+      } finally {
+        setLoadingPresence(false);
       }
     };
+    const fetchAllAdmirers = async () => {
+        // Get existing admirers
+        const admirersResponse = await api.get(`/mingle/all-admirers/${currentUserId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }
+        );
+        setAllAdmirers(admirersResponse.data);
+    }
 
-    socket.on('incoming-call', handleIncomingCall);
-
-    return () => {
-      socket.off('incoming-call', handleIncomingCall);
-    };
-  }, [socket, room.photoId, currentUserId, setIncomingCall]);
-
-  const startGroupCall = (type) => {
-    setCallType(type);
-    setInCall(true);
-    
-    // Notify all participants
-    const calleeIds = participants
-      .filter(p => p.id !== currentUserId)
-      .map(p => p.id);
-    
-    socket.emit('call-notification', {
-      callType: type,
-      callerId: currentUserId,
-      calleeIds,
-      roomId: room.photoId
-    });
-  };
-
-  const endGroupCall = () => {
-    setInCall(false);
-    setCallType(null);
-  };
-
-  // Rest of the existing ClubChatScreen code remains the same...
-  const showAlert = (message, type) => {
-    setAlert({ message, type });
-  };
+    fetchInitialPresence();
+    fetchAllAdmirers();
+  }, [room.photoId, currentUserId]);
+  
   // Fetch participants from server
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -252,6 +232,69 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
     loadMessages();
   }, [room.photoId, token]);
 
+  // Handle incoming calls
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingCall = (callData) => {
+      if (callData.roomId === room.photoId) {
+        // playCall();
+        const confirmCall = window.confirm(`Incoming ${callData.callType} call. Accept?`);
+        if (confirmCall) {
+          setCallType(callData.callType);
+          setInCall(true);
+          socket.emit('call-response', {
+            response: 'accepted',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        } else {
+          socket.emit('call-response', {
+            response: 'rejected',
+            callerId: callData.callerId,
+            calleeId: currentUserId,
+            roomId: callData.roomId
+          });
+        }
+        setIncomingCall(null);
+      }
+    };
+
+    socket.on('incoming-call', handleIncomingCall);
+
+    return () => {
+      socket.off('incoming-call', handleIncomingCall);
+    };
+  }, [socket, room.photoId, currentUserId, setIncomingCall]);
+
+  const startGroupCall = (type) => {
+    setCallType(type);
+    setInCall(true);
+    
+    // Notify all participants
+    const calleeIds = participants
+      .filter(p => p.id !== currentUserId)
+      .map(p => p.id);
+    
+    socket.emit('call-notification', {
+      callType: type,
+      callerId: currentUserId,
+      calleeIds,
+      roomId: room.photoId
+    });
+  };
+
+  const endGroupCall = () => {
+    setInCall(false);
+    setCallType(null);
+  };
+
+  // Rest of the existing ClubChatScreen code remains the same...
+  const showAlert = (message, type) => {
+    setAlert({ message, type });
+  };
+
   // Socket connection and event handlers
   useEffect(() => {
     // Initialization code...
@@ -358,9 +401,14 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
       });
     };    
 
-    // PresentCount handler
-    const presentCount = ({ presentCount }) => {
-      setPresentCount(presentCount);
+    // attendeesCount handler on update
+    const attendeesCount = ({ presentCount, presentUsers, userId, isPresent: userIsPresent  }) => {
+      setAttendeesCount(presentCount);
+      // setAttendeesCount(presentUsers?.length);
+      // Update our own presence status if it's our update
+      if (parseInt(userId) === parseInt(currentUserId)) {
+        setIsPresent(userIsPresent);
+      }
     };
 
     // Set up event listeners
@@ -368,7 +416,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
     socketRef.current.on('userStatus', handleUserStatus);
     socketRef.current.on('newMessage', handleNewMessage);
     socketRef.current.on('typing', handleTypingEvent);
-    socketRef.current.on('presence-updated', presentCount);
+    socketRef.current.on('presence-updated', attendeesCount);
 
     return () => {
       console.log('Cleaning up club chat socket...');
@@ -383,7 +431,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
       socketRef.current.off('userStatus', handleUserStatus);
       socketRef.current.off('newMessage', handleNewMessage);
       socketRef.current.off('typing', handleTypingEvent);
-      socketRef.current.off('presence-updated',presentCount);
+      socketRef.current.off('presence-updated',attendeesCount);
 
       // Disconnect socket
       if (socketRef.current?.connected) {
@@ -391,6 +439,38 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
       }
     };
   }, [room.photoId, currentUserId]);
+
+  const handlePresentClick = async () => {
+    if (!socketRef.current || isPresent) return;
+    
+    try {
+      setIsPresent(true);
+      socketRef.current.emit('update-presence', { 
+        roomId: room.photoId, 
+        userId: currentUserId,
+        isPresent: true 
+      });
+    } catch (error) {
+      console.error('Error setting presence:', error);
+      setIsPresent(false);
+    }
+  };
+
+  const handleAbsentClick = async () => {
+    if (!socketRef.current || !isPresent) return;
+    
+    try {
+      setIsPresent(false);
+      socketRef.current.emit('update-presence', { 
+        roomId: room.photoId, 
+        userId: currentUserId,
+        isPresent: false 
+      });
+    } catch (error) {
+      console.error('Error setting absence:', error);
+      setIsPresent(true);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -529,10 +609,15 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
           }
         }
       );
-      console.log('setIsMingling.length',response.data.length);
       setIsMingling(response.data.isMingling);
-      
-      if (response.data.isMingling) {
+    } catch (error) {
+      console.error('Error toggling mingle:', error);
+      showAlert('Failed to toggle mingle status', 'error');
+    }
+  };
+
+  const openMingle = async () => {
+      if (isMingling) {
         // Get all opposite sex to match
         const matchesResponse = await api.get(`/mingle/potential-matches/${currentUserId}`,
           {
@@ -575,20 +660,22 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         
         setShowMingleModal(true);
       }
-    } catch (error) {
-      console.error('Error toggling mingle:', error);
-      showAlert('Failed to toggle mingle status', 'error');
-    }
-  };
+  }
   
   const viewMatch = async (user,type) => {
     setViewType(type);
+    setDetailsOpen(true);
     try {
       setSelectedMatch(user);
     } catch (error) {
       console.error('Error viewing match:', error);
       showAlert('Failed to view match', 'error');
     }
+  };
+  
+  const handleCloseDetails = () => {
+    setSelectedMatch(null);
+    setDetailsOpen(false);
   };
   
   const chooseMatch = async (user) => {
@@ -752,45 +839,44 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         {/* Main Chat Area */}
         <div className={`chat-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
           <div className="attendance-buttons">
+
+            <div className={`mingle-container ${theme}`}>
+              <div className={`vertical-toggle ${isMingling ? 'active' : ''}`} onClick={toggleMingle}>
+                <div className="toggle-track">
+                  <div className="toggle-thumb">
+                    {isMingling ? '🌑' : '🌕'}
+                  </div>
+                </div>
+              </div>
+              <button 
+                className={`attendance-btn mingle ${theme} ${isMingling ? 'active' : ''}`}
+                onClick={openMingle}
+                disabled={!isMingling}
+              >
+                {isMingling?
+                <>
+                <span role="img" aria-label="Mingle">👥</span> 
+                <span className="admirer">{allAdmirers.length}</span>
+                </>:'disabled'
+              }
+              </button>
+            </div>
+
             <button 
-              className={`attendance-btn mingle ${theme} ${isMingling ? 'active' : ''}`}
-              onClick={toggleMingle}
+              className={`attendance-btn present ${theme} ${isPresent ? 'active' : ''}`}
+              onClick={handlePresentClick}
+              disabled={loadingPresence || isPresent}
             >
-              <span role="img" aria-label="Mingle">👥</span> 
-              <span className="admirer">{admirers.length > 0 || matches.length > 0 ? admirers.length + matches.length : '0'}</span>
+              <span role="img" aria-label="Present">✌️</span> 
+              Going <span className="count">({attendeesCount})</span>
             </button>
 
             <button 
-              className={`attendance-btn present ${theme}`}
-              onClick={() => {
-                if (!socketRef) return;
-                socketRef.current.emit('update-presence', { 
-                  roomId: room.photoId, 
-                  userId: currentUserId,
-                  isPresent: true
-                });
-                setIsPresent(true);
-              }}
-              disabled={isPresent}
+              className={`attendance-btn absent ${theme} ${isPresent ? '' : 'active'}`}
+              onClick={handleAbsentClick}
+              disabled={loadingPresence || !isPresent}
             >
-              <span role="img" aria-label="Present">👍</span> 
-              Present <span className="count">({presentCount})</span>
-            </button>
-
-            <button 
-              className={`attendance-btn absent ${theme}`}
-              onClick={() => {
-                if (!socketRef) return;
-                socketRef.current.emit('update-presence', { 
-                  roomId: room.photoId, 
-                  userId: currentUserId,
-                  isPresent: false
-                });
-                setIsPresent(false);
-              }}
-              disabled={!isPresent}
-            >
-              <span role="img" aria-label="Absent">👎</span> 
+              <span role="img" aria-label="Absent"> 🙇‍♂️</span> 
               Absent
             </button>
           </div>
@@ -893,7 +979,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
               <h3>{room.name}</h3>
             <div className="club-header">
               <div className="attendees-count">
-                <span role="img" aria-label="attendees">👥</span> {attendees} participants going
+                <span role="img" aria-label="attendees">👥</span> {attendeesCount}+ participants going
               </div>
             </div>
             
@@ -943,7 +1029,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
               />
             )}
             <div className="mingle-content">
-              <div className="mingle-list">
+              <div className={`mingle-list ${detailsOpen?'show':'hide'}`}>
                 {/* Show matches first */}
                 {matches.map(user => (
                   <div 
@@ -1050,7 +1136,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                   ))}
               </div>
               
-              <div className="mingle-details">
+              <div className={`mingle-details ${detailsOpen?'show':'hide'}`}>
+                <button className="details-close-btn" onClick={() => handleCloseDetails()}>×</button>
                 {selectedMatch ? (
                   <>
                     <div className="mingle-detail-header">
@@ -1059,9 +1146,11 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                         alt={selectedMatch.username}
                         className="mingle-detail-avatar"
                       />
-                      <h4>{selectedMatch.username}</h4>
-                      <p>Age: {selectedMatch.age || 'Unknown'}</p>
-                      <p>Location: {selectedMatch.location || 'Unknown'}</p>
+                      <div>
+                        <h4>{selectedMatch.username}</h4>
+                        <p>Age: {selectedMatch.age || 'Unknown'}</p>
+                        <p>Location: {selectedMatch.location || 'Unknown'}</p>
+                      </div>
                     </div>
                     
                     <div className="mingle-detail-bio">

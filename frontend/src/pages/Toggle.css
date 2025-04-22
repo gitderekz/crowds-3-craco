@@ -1,0 +1,137 @@
+/* Mingle Container */
+.mingle-container {
+    padding: 0px 2px;
+    border-radius: 20px;
+    /* font-weight: bold; */
+    /* display: flex; */
+    /* align-items: center; */
+    /* gap: 4px; */
+    /* transition: all 0.2s ease; */
+    /* border: none; */
+    /* cursor: pointer; */
+
+    display: flex;
+    align-items: space-around;
+    gap: 4px; 
+    background: #faf9d15e !important;
+}
+  
+  /* Vertical Toggle Switch */
+  .vertical-toggle {
+    width: 26px;
+    height: inherit;
+    /* border-radius: 13px; */
+    cursor: pointer;
+    /* position: relative; */
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: center;
+    padding: 3px 0;
+  }
+  
+  .vertical-toggle.light {
+    background: #e0e0e0;
+  }
+  
+  .vertical-toggle.dark {
+    background: #444;
+  }
+  
+  .vertical-toggle.active.light {
+    background: var(--primary-color);
+  }
+  
+  .vertical-toggle.active.dark {
+    background: #1f2a44;
+  }
+  
+  .toggle-track {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    /* background: #faf9d1; */
+    background: wheat;
+    border-radius: 20px;
+  }
+  .vertical-toggle.active .toggle-track {
+    background: gainsboro;
+  }
+  .mingle-container.dark .vertical-toggle.active .toggle-track {
+    background: #1f2a44;
+  }
+  .mingle-container.dark .vertical-toggle .toggle-track {
+    background: wheat;
+  }
+  
+  .toggle-thumb {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+
+  
+  @media (max-width: 480px) {
+    .toggle-thumb {
+      font-size: 12px;
+      /* width: 15px; */
+      /* height: 15px; */
+      /* left: auto; */
+      /* right: 6px; */
+      bottom: 1px;
+    }
+  }
+  
+  .vertical-toggle.active .toggle-thumb {
+    bottom: calc(100% - 23px);
+    transform: rotate(180deg);
+    background: white;
+  }
+  
+  /* Arrow animation */
+  @keyframes slide-up {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-100%); }
+  }
+  
+  @keyframes slide-down {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(0); }
+  }
+  /* Moon/Sun animation */
+@keyframes phase {
+    0% { content: '🌑'; }
+    25% { content: '🌒'; }
+    50% { content: '🌓'; }
+    75% { content: '🌔'; }
+    100% { content: '🌕'; }
+  }
+  .vertical-toggle:not(.active) .toggle-thumb {
+    /* animation: slide-down 0.3s ease-out; */
+    content: '🌕';
+    animation: phase 0.5s ease-in-out;
+  }
+  
+  .vertical-toggle.active .toggle-thumb {
+    /* animation: slide-up 0.3s ease-out; */
+    content: '🌑';
+    animation: phase 0.5s ease-in-out reverse;
+  }
+  
+  /* Keep existing button styles */
+  /* .attendance-btn.mingle {
+    pointer-events: none;
+    height: 40px; 
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+  } */

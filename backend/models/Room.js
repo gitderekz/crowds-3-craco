@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
     },
     presentUsers: {
-      type: DataTypes.ARRAY(DataTypes.INTEGER),
+      type: DataTypes.JSON,//ARRAY(DataTypes.INTEGER),
       defaultValue: [], // Initialize as empty array
       allowNull: false
     },

@@ -1,0 +1,524 @@
+/* Mingle Modal - Enhanced Styles */
+.mingle-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    backdrop-filter: blur(5px);
+  }
+  
+  .mingle-modal {
+    background: white;
+    width: 85%;
+    max-width: 1000px;
+    height: 85vh;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: modalFadeIn 0.3s ease-out;
+  }
+  
+  .mingle-modal.dark {
+    background: #2a2f3d;
+    color: #f0f4f8;
+  }
+  
+  @keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Header */
+  .mingle-header {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--primary-color);
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .mingle-header.dark {
+    background: #1f2a44;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .mingle-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  
+  .mingle-header button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: transform 0.2s;
+    padding: 5px;
+    border-radius: 50%;
+  }
+  
+  .mingle-header button:hover {
+    transform: rotate(90deg);
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Content Layout */
+  .mingle-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  /* User List Section */
+  .mingle-list {
+    width: 40%;
+    overflow-y: auto;
+    padding: 20px;
+    border-right: 1px solid #eaeaea;
+    background: #f9f9f9;
+  }
+  
+  .mingle-list.dark {
+    background: #232833;
+    border-right-color: #3a3f4b;
+  }
+  
+  /* User Cards */
+  .mingle-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  .mingle-item.dark {
+    background: #2f3644;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  .mingle-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .mingle-item.selected {
+    border: 2px solid var(--primary-color);
+    background-color: rgba(79, 209, 197, 0.1);
+  }
+  
+  /* Special states for matches, admirers etc */
+  .mingle-item.match {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), white);
+    border-left: 4px solid #4CAF50;
+  }
+  
+  .mingle-item.match.dark {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), #2f3644);
+  }
+  
+  .mingle-item.admirer {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), white);
+    border-left: 4px solid #FFC107;
+  }
+  
+  .mingle-item.admirer.dark {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), #2f3644);
+  }
+  
+  .mingle-item.admired {
+    background: linear-gradient(135deg, rgba(233, 30, 99, 0.1), white);
+    border-left: 4px solid #E91E63;
+  }
+  
+  .mingle-item.admired.dark {
+    background: linear-gradient(135deg, rgba(233, 30, 99, 0.15), #2f3644);
+  }
+  
+  /* User Avatar */
+  .mingle-avatar {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 15px;
+    flex-shrink: 0;
+    border: 3px solid #f0f0f0;
+  }
+  
+  .mingle-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .mingle-item.dark .mingle-avatar {
+    border-color: #3a3f4b;
+  }
+  
+  /* Status Badge */
+  .mingle-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  .mingle-badge.match {
+    background: #4CAF50;
+  }
+  
+  .mingle-badge.admirer {
+    background: #FFC107;
+    color: #333;
+  }
+  
+  .mingle-badge.admired {
+    background: #E91E63;
+  }
+  
+  /* User Info */
+  .mingle-user-info {
+    flex: 1;
+    min-width: 0; /* Prevent overflow */
+  }
+  
+  .mingle-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .mingle-status {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  
+  .mingle-item.dark .mingle-status {
+    color: #b0b4bb;
+  }
+  
+  .status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  
+  .status-indicator.online {
+    background: #4CAF50;
+  }
+  
+  .status-indicator.offline {
+    background: #ccc;
+  }
+  
+  /* Details Section */
+  .mingle-details {
+    flex: 1;
+    padding: 5px 25px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    position: relative; /* This allows absolute positioning inside */
+  }
+  
+  /* Profile Header */
+  .mingle-detail-header {
+    display: flex;
+    text-align: center;
+    margin-bottom: 5px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .mingle-detail-header.dark {
+    border-bottom-color: #3a3f4b;
+  }
+  
+  .mingle-detail-avatar {
+    width: 180px;
+    height: 180px;
+    border-radius: 10%;
+    object-fit: cover;
+    margin: 0 auto 5px;
+    border: 4px solid var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .mingle-detail-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  
+  .mingle-detail-age-location {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    color: #666;
+    font-size: 0.95rem;
+    margin-bottom: 5px;
+  }
+  
+  .mingle-details.dark .mingle-detail-age-location {
+    color: #b0b4bb;
+  }
+  
+  /* Bio Section */
+  .mingle-detail-bio {
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 5px;
+    line-height: 1.6;
+  }
+  
+  .mingle-details.dark .mingle-detail-bio {
+    background: #353b48;
+  }
+  
+  .mingle-detail-bio h5 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+  }
+  
+  /* Action Buttons */
+  .mingle-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: auto;
+    padding-top: 5px;
+  }
+  
+  .mingle-action-btn {
+    padding: 12px 25px;
+    border-radius: 30px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+    justify-content: center;
+  }
+  
+  .mingle-action-btn.choose {
+    background: var(--primary-color);
+    color: white;
+  }
+  
+  .mingle-action-btn.choose:hover:not(:disabled) {
+    background: #3bb6a7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 209, 197, 0.3);
+  }
+  
+  .mingle-action-btn.ignore {
+    background: #f5f5f5;
+    color: #f44336;
+  }
+  
+  .mingle-details.dark .mingle-action-btn.ignore {
+    background: #3a3f4b;
+    color: #ff8a80;
+  }
+  
+  .mingle-action-btn.ignore:hover:not(:disabled) {
+    background: #eee;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.1);
+  }
+  
+  .mingle-details.dark .mingle-action-btn.ignore:hover:not(:disabled) {
+    background: #444a58;
+  }
+  
+  .mingle-action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* Empty State */
+  .mingle-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .mingle-empty-state svg {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.7;
+  }
+  
+  .mingle-empty-state p {
+    max-width: 300px;
+    line-height: 1.5;
+  }
+  
+  /* Responsive Styles */
+  @media (max-width: 768px) {
+    .mingle-modal {
+      width: 100%;
+      height: 90vh;
+    }
+    
+    .mingle-content {
+      flex-direction: column;
+    }
+    
+    .mingle-list {
+      width: 100%;
+      height: auto;
+      /* height: 40%; */
+      border-right: none;
+      border-bottom: 1px solid #eee;
+      padding: 15px;
+    }
+    .mingle-list.show {
+      height: 40%;
+    }
+    
+    .mingle-list.dark {
+      border-bottom-color: #3a3f4b;
+    }
+    
+    .mingle-item {
+      padding: 12px;
+    }
+    
+    .mingle-avatar {
+      width: 50px;
+      height: 50px;
+      margin-right: 12px;
+    }
+    
+    .mingle-details {
+      height: 60%;
+      padding: 5px 20px;
+      background: rgba(203, 231, 200, 0.774);
+    }
+    
+    .mingle-details.hide {
+      display: none;
+    }
+    
+    .mingle-detail-avatar {
+      width: 140px;
+      height: 140px;
+    }
+    
+    .mingle-actions {
+      flex-direction: row;
+      gap: 10px;
+    }
+    
+    .mingle-action-btn {
+      width: 100%;
+    }
+    
+    .details-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background-color: red; /* Red background */
+      border: none;
+      border-radius: 50%; /* Makes the button round */
+      width: 30px; /* Adjust the size */
+      height: 30px; /* Adjust the size */
+      display: flex;
+      justify-content: center; /* Center the × inside */
+      align-items: center; /* Center the × inside */
+      font-size: 1.5rem;
+      color: white; /* White text for contrast */
+      cursor: pointer;
+      padding: 0; /* Remove padding to keep the button round */
+    }
+    
+    .details-close-btn:hover {
+      background-color: darkred; /* Darker red on hover */
+    }
+    
+    .mingle-details.dark .details-close-btn {
+      color: #b0b4bb;
+    }
+    
+  }
+  
+  /* Animation for matches */
+  @keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+  }
+  
+  .mingle-item.match {
+    animation: pulseGlow 2s infinite;
+  }
+  
+  /* Animation for admirers */
+  @keyframes pulseGlowYellow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+  }
+  
+  .mingle-item.admirer {
+    animation: pulseGlowYellow 2s infinite;
+  }
+  
+  /* Animation for admired */
+  @keyframes pulseGlowPink {
+    0% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(233, 30, 99, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0); }
+  }
+  
+  .mingle-item.admired {
+    animation: pulseGlowPink 2s infinite;
+  }

@@ -130,6 +130,21 @@ app.use('/api/agora', agoraRoutes);
 // Track all connected users
 const connectedUsers = new Map();
 app.use('/api/mingle', (mingleRoutes)(io, connectedUsers));
+// Add this to your server.js routes
+app.get('/api/rooms/:roomId/presence', async (req, res) => {
+  try {
+    const room = await db.room.findByPk(req.params.roomId);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    res.json({
+      presentUsers: JSON.parse(room.presentUsers) || [],
+      presentCount: (JSON.parse(room.presentUsers) || []).length
+    });
+  } catch (error) {
+    console.error('Error getting room presence:', error);
+    res.status(500).json({ message: 'Error getting presence data' });
+  }
+});
 app.use(errorMiddleware);
 
 io.on('connection', (socket) => {
@@ -424,13 +439,18 @@ io.on('connection', (socket) => {
 
   socket.on('update-presence', async ({ roomId, userId, isPresent }) => {
     const room = await db.room.findByPk(roomId);
-    console.log("r=",room.presentUsers);
     if (!room) {
       console.error(`Room ${roomId} not found`);
       return;
     }
     let presentUsers = room.presentUsers || [];
-    
+    try {
+      presentUsers = Array.isArray(room.presentUsers)
+        ? room.presentUsers
+        : JSON.parse(room.presentUsers);
+    } catch (e) {
+      presentUsers = [];
+    }
     if (isPresent) {
       if (!presentUsers.includes(userId)) {
         presentUsers = [...presentUsers, userId];
@@ -440,8 +460,7 @@ io.on('connection', (socket) => {
       presentUsers = presentUsers.filter(id => id !== userId);
     }
     
-    const r = await room.update({ presentUsers:JSON.stringify(presentUsers) });
-    console.log("r=",r);
+    const r = await room.update({ presentUsers/*:JSON.stringify(presentUsers)*/ });
     
     io.to(roomId).emit('presence-updated', { 
       roomId,

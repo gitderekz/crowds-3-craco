@@ -268,6 +268,28 @@ router.get('/admirers/:userId', async (req, res) => {
   }
 });
 
+// Get all admirers
+router.get('/all-admirers/:userId', async (req, res) => {
+  try {
+    const allAdmirers = await db.mingleChoice.findAll({
+      where: {
+        [Op.or]:[
+          {chosenId: req.params.userId},
+          {chooserId: req.params.userId, status: 'matched'}
+        ]
+      },
+      include: [{
+        model: db.user,
+        as: 'chooser',
+        attributes: ['id', 'username', 'avatar']
+      }]
+    });
+    res.json(allAdmirers.map(a => a.chooser));
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching admirers' });
+  }
+});
+
 // Get admirers
 router.get('/matches/:userId', async (req, res) => {
   try {
