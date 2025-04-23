@@ -108,7 +108,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
             }
           }
         );
-        setAllAdmirers(admirersResponse.data);
+        setAllAdmirers(admirersResponse.data.allAdmirers);
+        setIsMingling(admirersResponse.data.isMingling);
     }
 
     fetchInitialPresence();
@@ -691,9 +692,13 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
       });
     
       // Update local state
-      setPotentialMatches(prev => prev.filter(u => u.id !== user.id));
-      setMatches(prev => [...prev, user]);
-      setAdmirers(prev => prev.filter(admirer => admirer.id !== user.id));
+      setPotentialMatches(prev => prev.filter(u => u.id !== user.id)); //if matches remove
+      if(response.data.isMatch) {
+        setMatches(prev => [...prev, user]);
+        setAdmirers(prev => prev.filter(admirer => admirer.id !== user.id));
+      }else{
+        setAdmired(prev => [...prev, user]);
+      }
       
       showAlert(response.data.isMatch ? 
         `You've matched with ${user.username}!` : 
@@ -718,8 +723,19 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
       });
     
       // Update local state
-      setPotentialMatches(prev => prev.filter(u => u.id !== user.id));
-      setAdmirers(prev => prev.filter(admirer => admirer.id !== user.id));
+      if (viewType === 'admirer' || viewType === 'admired') {
+        setAdmirers(prev => prev.filter(admirer => admirer.id !== user.id));
+        setAdmired(prev => prev.filter(admired => admired.id !== user.id));
+        console.log("IGNORE admirer: ", admirers.length,potentialMatches.length);
+        console.log("IGNORE admired: ", admired.length,potentialMatches.length);
+      }if (viewType === 'match') {
+        setMatches(prev => prev.filter(match => match.id !== user.id));
+        console.log("IGNORE matches: ", matches.length,potentialMatches.length);
+      }
+      // setPotentialMatches(prev => prev.filter(u => u.id !== user.id));
+      setPotentialMatches(prev => [...prev, user]);
+      console.log("IGNORE PotentialMatches: ", potentialMatches.length);
+      
       setSelectedMatch(null);
       
       showAlert(`You've ignored ${user.username}`, 'info');
@@ -1029,7 +1045,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
               />
             )}
             <div className="mingle-content">
-              <div className={`mingle-list ${detailsOpen?'show':'hide'}`}>
+              <div className={`mingle-list ${theme}`}>
                 {/* Show matches first */}
                 {matches.map(user => (
                   <div 
@@ -1062,7 +1078,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                   if (!user) return null;
                   
                   return (
-                    <div key={user.id} className={`mingle-item ${theme} ${parseInt(selectedMatch?.id) === parseInt(user.id) ? 'selected' : ''} admired`} onClick={() => viewMatch(user,'admired')}>
+                    <div key={user.id} className={`mingle-item ${theme} ${parseInt(selectedMatch?.id) === parseInt(user.id) ? 'selected' : ''} admired`} 
+                      onClick={() => viewMatch(user,'admired')}>
                       <div className="mingle-avatar">
                         <img 
                           src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} 
@@ -1091,7 +1108,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                   if (!user) return null;
                   
                   return (
-                    <div key={user.id} className={`mingle-item ${theme} ${parseInt(selectedMatch?.id) === parseInt(user.id) ? 'selected' : ''} admirer`} onClick={() => viewMatch(user,'admirer')}>
+                    <div key={user.id} className={`mingle-item ${theme} ${parseInt(selectedMatch?.id) === parseInt(user.id) ? 'selected' : ''} admirer`} 
+                      onClick={() => viewMatch(user,'admirer')}>
                       <div className="mingle-avatar">
                         <img 
                           src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} 
@@ -1137,15 +1155,17 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
               </div>
               
               <div className={`mingle-details ${detailsOpen?'show':'hide'}`}>
-                <button className="details-close-btn" onClick={() => handleCloseDetails()}>×</button>
                 {selectedMatch ? (
                   <>
+                    <button className="details-close-btn" onClick={() => handleCloseDetails()}>×</button>
                     <div className="mingle-detail-header">
-                      <img 
-                        src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${selectedMatch.avatar}`} 
-                        alt={selectedMatch.username}
-                        className="mingle-detail-avatar"
-                      />
+                      <div>
+                        <img 
+                          src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${selectedMatch.avatar}`} 
+                          alt={selectedMatch.username}
+                          className="mingle-detail-avatar"
+                        />
+                      </div>
                       <div>
                         <h4>{selectedMatch.username}</h4>
                         <p>Age: {selectedMatch.age || 'Unknown'}</p>

@@ -189,11 +189,22 @@ router.get('/potential-matches/:userId', authenticate, async (req, res) => {
     const existingChoices = await db.mingleChoice.findAll({
       where: {
         [Op.or]: [
-          { chooserId: userId },
-          { chosenId: userId }
+          {
+            [Op.and]: [
+              { chooserId: userId },
+              { status: { [Op.in]: ['pending', 'matched'] } }
+            ]
+          },
+          {
+            [Op.and]: [
+              { chosenId: userId },
+              { status: { [Op.in]: ['pending', 'matched'] } }
+            ]
+          }
         ]
       }
     });
+    
 
     const excludedIds = [
       userId,
@@ -271,20 +282,31 @@ router.get('/admirers/:userId', async (req, res) => {
 // Get all admirers
 router.get('/all-admirers/:userId', async (req, res) => {
   try {
-    const allAdmirers = await db.mingleChoice.findAll({
-      where: {
-        [Op.or]:[
-          {chosenId: req.params.userId},
-          {chooserId: req.params.userId, status: 'matched'}
-        ]
-      },
-      include: [{
-        model: db.user,
-        as: 'chooser',
-        attributes: ['id', 'username', 'avatar']
-      }]
+    const { userId } = req.params;
+    const [mStatus, allAdmirers] = await Promise.all([
+      db.mingleStatus.findOne({ 
+        where: { userId },
+        attributes: ['isMingling']
+      }),
+      db.mingleChoice.findAll({
+        where: {
+          [Op.or]: [
+            { chosenId: userId },
+            { chooserId: userId, status: 'matched' }
+          ]
+        },
+        include: [{
+          model: db.user,
+          as: 'chooser',
+          attributes: ['id', 'username', 'avatar']
+        }]
+      })
+    ]);
+
+    res.json({
+      allAdmirers: allAdmirers.map(a => a.chooser),
+      isMingling: mStatus?.isMingling || false
     });
-    res.json(allAdmirers.map(a => a.chooser));
   } catch (error) {
     res.status(500).json({ message: 'Error fetching admirers' });
   }

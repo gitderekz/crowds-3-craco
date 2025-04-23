@@ -81,6 +81,8 @@
     flex: 1;
     overflow: hidden;
     position: relative;
+    padding: 20px;
+    align-items: center;
   }
   
   /* User List Section */
@@ -257,23 +259,51 @@
   /* Profile Header */
   .mingle-detail-header {
     display: flex;
-    text-align: center;
+    flex-direction: row;
+    text-align: left;
     margin-bottom: 5px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
+    justify-content: space-around;
   }
   
   .mingle-detail-header.dark {
     border-bottom-color: #3a3f4b;
+  }
+    
+  .details-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background-color: red; /* Red background */
+    border: none;
+    border-radius: 50%; /* Makes the button round */
+    width: 30px; /* Adjust the size */
+    height: 30px; /* Adjust the size */
+    display: flex;
+    justify-content: center; /* Center the × inside */
+    align-items: center; /* Center the × inside */
+    font-size: 1.5rem;
+    color: white; /* White text for contrast */
+    cursor: pointer;
+    padding: 0; /* Remove padding to keep the button round */
+  }
+  
+  .details-close-btn:hover {
+    background-color: darkred; /* Darker red on hover */
+  }
+  
+  .mingle-details.dark .details-close-btn {
+    color: #b0b4bb;
   }
   
   .mingle-detail-avatar {
     width: 180px;
     height: 180px;
     border-radius: 10%;
-    object-fit: cover;
+    object-fit:cover;
     margin: 0 auto 5px;
-    border: 4px solid var(--primary-color);
+    border: 1px solid var(--primary-color);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   
@@ -439,9 +469,11 @@
     }
     
     .mingle-details {
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      border-radius: 20px 20px 0px 0px;
       height: 60%;
-      padding: 5px 20px;
-      background: rgba(203, 231, 200, 0.774);
+      width: 100%;
+      padding: 10px 20px;
     }
     
     .mingle-details.hide {
@@ -449,8 +481,8 @@
     }
     
     .mingle-detail-avatar {
-      width: 140px;
-      height: 140px;
+      width: 200px;
+      height: 200px;
     }
     
     .mingle-actions {
@@ -460,32 +492,6 @@
     
     .mingle-action-btn {
       width: 100%;
-    }
-    
-    .details-close-btn {
-      position: absolute;
-      top: 10px;
-      right: 15px;
-      background-color: red; /* Red background */
-      border: none;
-      border-radius: 50%; /* Makes the button round */
-      width: 30px; /* Adjust the size */
-      height: 30px; /* Adjust the size */
-      display: flex;
-      justify-content: center; /* Center the × inside */
-      align-items: center; /* Center the × inside */
-      font-size: 1.5rem;
-      color: white; /* White text for contrast */
-      cursor: pointer;
-      padding: 0; /* Remove padding to keep the button round */
-    }
-    
-    .details-close-btn:hover {
-      background-color: darkred; /* Darker red on hover */
-    }
-    
-    .mingle-details.dark .details-close-btn {
-      color: #b0b4bb;
     }
     
   }
