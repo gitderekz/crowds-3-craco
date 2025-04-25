@@ -10,6 +10,7 @@ const roomuser = require('./RoomUser');
 const refresh_token = require('./RefreshToken');
 const mingleStatus = require('./MingleStatus');
 const mingleChoice = require('./MingleChoice');
+const MingleChoice = require('./MingleChoice');
 
 // const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
 //   host: dbConfig.HOST,
@@ -39,20 +40,33 @@ const db = {
 };
 
 // Define associations
+// USER PHOTO
 db.user.hasMany(db.photo, { foreignKey: 'userId', onDelete: 'CASCADE' });
 db.user.hasMany(db.photo, { foreignKey: 'clientId', onDelete: 'CASCADE' });
 db.photo.belongsTo(db.user, { foreignKey: 'userId', onDelete: 'CASCADE' });
 
+// USER LIKE
 db.user.hasMany(db.like, { foreignKey: 'userId', onDelete: 'CASCADE' });
 db.like.belongsTo(db.user, { foreignKey: 'userId', onDelete: 'CASCADE' });
 
+// PHOTO LIKE
 db.photo.hasMany(db.like, { foreignKey: 'photoId', onDelete: 'CASCADE' });
 db.like.belongsTo(db.photo, { foreignKey: 'photoId', onDelete: 'CASCADE' });
 
+// PHOTO CATEGORY
+db.photo.belongsTo(db.category, { foreignKey: 'categoryId', onDelete: 'CASCADE' });
+db.category.hasMany(db.photo, { foreignKey: 'categoryId', onDelete: 'CASCADE' });
+
+// PHOTO ROOM
+db.photo.hasOne(db.room, { foreignKey: 'photoId', onDelete: 'CASCADE' });
+db.room.belongsTo(db.photo, { foreignKey: 'photoId', onDelete: 'CASCADE' });
+
 // Self-referencing associations for category
+// CATEGORY CATEGORY
 db.category.belongsTo(db.category, { foreignKey: 'parentId', as: 'parent' });
 db.category.hasMany(db.category, { foreignKey: 'parentId', as: 'children' });
 
+// USER REFRESH-TOKEN
 db.user.hasMany(db.refresh_token, { foreignKey: 'userId', onDelete: 'CASCADE' });
 db.refresh_token.belongsTo(db.user, { foreignKey: 'userId', onDelete: 'CASCADE' });
 
@@ -143,6 +157,14 @@ db.mingleChoice.belongsTo(db.user, {
   foreignKey: 'chosenId',
   as: 'chosen',
   onDelete: 'CASCADE'
+});
+
+// ROOM - MINGLECHOICE
+db.mingleChoice.belongsTo(db.room, {
+  foreignKey: 'roomId'
+});
+db.room.hasMany(db.mingleChoice, {
+  foreignKey: 'roomId'
 });
 
 module.exports = db;

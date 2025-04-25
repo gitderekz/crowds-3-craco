@@ -76,9 +76,93 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const [inCall, setInCall] = useState(false);
   const [callType, setCallType] = useState(null);
   const { callTechnology, toggleCallTechnology } = useVideoCall();
+  
+  // Fetch participants from server
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      setLoadingParticipants(true);
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/${room.name}/participants`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }
+        );
+        
+        // If room exists, use its participants
+        if (response.data) {
+          console.log('Fetched participants');
+          setParticipants(response.data);
+        } else {
+          // If room doesn't exist, create it first
+          await createRoom();
+          // Then fetch participants again
+          console.log('Fetching again participants');
+          const newResponse = await axios.get(
+            `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/${room.name}/participants`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+              }
+            }
+          );
+          setParticipants(newResponse.data);
+        }
+      } catch (error) {
+        if (error.response?.status === 404) {
+          // Room doesn't exist, create it
+          try {
+            await createRoom();
+            const newResponse = await axios.get(
+              `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/${room.name}/participants`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+                }
+              }
+            );
+            setParticipants(newResponse.data);
+          } catch (creationError) {
+            console.error('Error creating room:', creationError);
+          }
+        } else {
+          console.error('Error fetching participants:', error);
+        }
+      } finally {
+        setLoadingParticipants(false);
+      }
+    };
+
+    const createRoom = async () => {
+      console.log('creating Room');
+      try {
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/rooms`,
+          {
+            roomId: room.photoId, // Pass the photoId as the room ID
+            name: room.name,
+            isGroup: true,
+            userIds: [] // Add initial participants if needed
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error creating room:', error);
+        throw error;
+      }
+    };
+
+    fetchParticipants();
+  }, [/*room.photoId, room.name */isTyperPresent]);
 
   // Fetch initial presence data & all admirers when component mounts
-  useEffect(() => {
+  const usesEffect = (() => {
     const fetchInitialPresence = async () => {
       try {
         const response = await axios.get(
@@ -115,89 +199,6 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
     fetchInitialPresence();
     fetchAllAdmirers();
   }, [room.photoId, currentUserId]);
-  
-  // Fetch participants from server
-  useEffect(() => {
-    const fetchParticipants = async () => {
-      setLoadingParticipants(true);
-      try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/${room.name}/participants`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-            }
-          }
-        );
-        
-        // If room exists, use its participants
-        if (response.data) {
-          console.log('EXIST');
-          setParticipants(response.data);
-        } else {
-          // If room doesn't exist, create it first
-          await createRoom();
-          // Then fetch participants again
-          const newResponse = await axios.get(
-            `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/participants`,
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-              }
-            }
-          );
-          setParticipants(newResponse.data);
-        }
-      } catch (error) {
-        if (error.response?.status === 404) {
-          // Room doesn't exist, create it
-          try {
-            await createRoom();
-            const newResponse = await axios.get(
-              `${process.env.REACT_APP_API_URL}/rooms/${room.photoId}/participants`,
-              {
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-                }
-              }
-            );
-            setParticipants(newResponse.data);
-          } catch (creationError) {
-            console.error('Error creating room:', creationError);
-          }
-        } else {
-          console.error('Error fetching participants:', error);
-        }
-      } finally {
-        setLoadingParticipants(false);
-      }
-    };
-
-    const createRoom = async () => {
-      console.log('NOT EXIST');
-      try {
-        await axios.post(
-          `${process.env.REACT_APP_API_URL}/rooms`,
-          {
-            roomId: room.photoId, // Pass the photoId as the room ID
-            name: room.name,
-            isGroup: true,
-            userIds: [] // Add initial participants if needed
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-            }
-          }
-        );
-      } catch (error) {
-        console.error('Error creating room:', error);
-        throw error;
-      }
-    };
-
-    fetchParticipants();
-  }, [/*room.photoId, room.name */isTyperPresent]);
 
   // Load initial messages
   useEffect(() => {

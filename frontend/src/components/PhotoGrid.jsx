@@ -33,6 +33,10 @@ const PhotoGrid = ({ photos, activeCategoryName }) => {
     };
   }, []);
 
+  useEffect(()=>{
+console.log("activeCategoryName",activeCategoryName);
+
+  },[activeCategoryName])
 
   const showAlert = (message, type) => {
     setAlert({ message, type });
@@ -124,26 +128,27 @@ const PhotoGrid = ({ photos, activeCategoryName }) => {
       )}
 
       {filteredPhotos.length === 0 ? (
-        // <div>Loading crowds...{console.log(filteredPhotos)}</div>
-        [{ id:1, name: "placeholder" }, { id:2, name: "placeholder" }, { id:3, name: "placeholder" }].map((placeholder) => {
-          return (
-            <div key={placeholder.id} className="photo-item" >
-              <div>Loading crowd...</div>
-              <div className="video-thumbnail">
-                <img
-                  src={`${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholders/flyd-fYZW5-Q-4cI-unsplash.jpg`}
-                  alt={placeholder.name}
-                  loading="lazy"
-                  onError={(e) => {
-                    if (e.target.src !== `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`) {
-                      e.target.src = `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`;
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })
+        <div>No content in {activeCategoryName}</div>
+        // <div>Loading crowds...</div>
+        // [{ id:1, name: "placeholder" }, { id:2, name: "placeholder" }, { id:3, name: "placeholder" }].map((placeholder) => {
+        //   return (
+        //     <div key={placeholder.id} className="photo-item" >
+        //       <div>Loading crowd...</div>
+        //       <div className="video-thumbnail">
+        //         <img
+        //           src={`${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholders/flyd-fYZW5-Q-4cI-unsplash.jpg`}
+        //           alt={placeholder.name}
+        //           loading="lazy"
+        //           onError={(e) => {
+        //             if (e.target.src !== `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`) {
+        //               e.target.src = `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`;
+        //             }
+        //           }}
+        //         />
+        //       </div>
+        //     </div>
+        //   );
+        // })
         
       ) : (
         filteredPhotos.map((photo) => {
@@ -236,7 +241,7 @@ const PhotoGrid = ({ photos, activeCategoryName }) => {
               </div>
               
               {/* Top right Chat overlay */}
-              {parseInt(photo.category) !== 1 && photo.mediaType === 'gif' && (
+              {parseInt(photo.categoryId) !== 1 && photo.mediaType === 'gif' && (
                 <div 
                   className="chat-overlay"
                   onClick={(e) => handleChatClick(e, photo)}

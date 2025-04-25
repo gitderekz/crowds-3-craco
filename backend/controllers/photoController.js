@@ -6,7 +6,7 @@ exports.uploadPhotos = async (req, res) => {
     return res.status(400).json({ message: 'No files uploaded' });
   }
 
-  const { name, category, mediaType, clientId, event, displayOnHome, userId } = req.body;
+  const { name, categoryId, mediaType, clientId, event, displayOnHome, userId } = req.body;
 
   try {
     // Map uploaded files to their URLs
@@ -16,7 +16,7 @@ exports.uploadPhotos = async (req, res) => {
     const photos = await db.photo.bulkCreate(
       imageUrls.map((url) => ({
         name,
-        category,
+        categoryId,
         clientId,
         event,
         displayOnHome: displayOnHome === 'true',
@@ -35,9 +35,9 @@ exports.uploadPhotos = async (req, res) => {
 };
 
 exports.getClientPhotos = async (req, res) => {
-  const { category, userId } = req.query;
+  const { categoryId, userId } = req.query;
   const where = {};
-  if (category) where.category = category;
+  if (categoryId) where.categoryId = categoryId;
   if (userId) where.userId = userId;
 
   try {
@@ -49,11 +49,11 @@ exports.getClientPhotos = async (req, res) => {
 };
 
 exports.getCategoryPhotos = async (req, res) => {
-  const { category, page = 1, limit = 30 } = req.query;
+  const { categoryId, page = 1, limit = 30 } = req.query;
   const offset = (page - 1) * limit;
 
   try {
-    const where = category ? { category } : {};
+    const where = categoryId ? { categoryId } : {};
     const photos = await db.photo.findAll({
       where,
       limit,
@@ -68,6 +68,22 @@ exports.getCategoryPhotos = async (req, res) => {
           model: db.like,  // Ensure 'User' is properly associated in your models
           as: 'likes',  // Use the alias defined in the association
           attributes: ['id', 'userId', 'photoId'] // Select only needed fields
+        },
+        {
+          model: db.category,
+        },
+        {
+          model: db.room,
+          include:[
+            {
+              model: db.user,
+              as: 'members',
+              attributes: ['id', 'username', 'avatar']
+            },
+            {
+              model: db.mingleChoice,
+            }
+          ]
         }
       ]
     });
@@ -80,7 +96,7 @@ exports.getCategoryPhotos = async (req, res) => {
 exports.getSponsorPhotos = async (req, res) => {
   try {
     const sponsorPhotos = await db.photo.findAll({ 
-      where: { category: 1/*'sponsor'*/ },
+      where: { categoryId: 1/*'sponsor'*/ },
       include: [
         {
           model: db.user,  // Ensure 'User' is properly associated in your models
@@ -114,6 +130,22 @@ exports.getHomePhotos = async (req, res) => {
           model: db.like,  // Ensure 'User' is properly associated in your models
           as: 'likes',  // Use the alias defined in the association
           attributes: ['id', 'userId', 'photoId'] // Select only needed fields
+        },
+        {
+          model: db.category,
+        },
+        {
+          model: db.room,
+          include:[
+            {
+              model: db.user,
+              as: 'members',
+              attributes: ['id', 'username', 'avatar']
+            },
+            {
+              model: db.mingleChoice,
+            }
+          ]
         }
       ]
     });

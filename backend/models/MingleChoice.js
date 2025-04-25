@@ -21,6 +21,14 @@ module.exports = (sequelize, DataTypes) => {
           key: 'id'
         }
       },
+      roomId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'rooms',
+          key: 'id'
+        }
+      },
       status: {
         type: DataTypes.ENUM('pending', 'ignored', 'matched'),
         allowNull: false,
@@ -64,6 +72,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'chosenId',
         as: 'chosen',
         onDelete: 'CASCADE'
+      });
+      
+      MingleChoice.belongsTo(models.room, {
+        foreignKey: 'roomId'
       });
     };
   

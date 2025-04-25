@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaHeart, FaTimes, FaMapMarkerAlt, FaUsers, FaCalendarAlt, FaComments } from 'react-icons/fa';
+import { FaHeart, FaTimes, FaMapMarkerAlt, FaUsers, FaCalendarAlt, FaComments, FaGrinWink, FaUserFriends } from 'react-icons/fa';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
@@ -96,7 +96,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
               
               {/* Chat and Like in one row */}
               <div className="modal-interaction-row">
-                {parseInt(photo.category) !== 1 && photo.mediaType === 'gif' && (
+                {parseInt(photo.categoryId) !== 1 && photo.mediaType === 'gif' && (
                   <div 
                     className="chat-overlay-modal"
                     onClick={(e) => handleChatClick(e, photo)}
@@ -111,7 +111,28 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                   <FaHeart className={`fa-heart modal ${hasLiked ? 'liked' : ''} `} />
                 </div>
 
-                <p className="place-category">Category: {activeCategoryName??''}</p>
+                <p className="place-category">Category: {photo.category?.name??activeCategoryName}</p>
+
+              </div>
+              
+              {/* Statisics in one row */}
+              <div className="modal-interaction-row">
+                {parseInt(photo.categoryId) !== 1 && photo.mediaType === 'gif' && (
+                  <div className="member-overlay-modal">
+                    <FaUsers className="chat-icon" />
+                    <span>{photo.room?.members?.length} Members</span>
+                  </div>
+                )}
+
+                <div className="going-overlay-modal">
+                  <FaGrinWink className="chat-icon" />
+                  <span>{photo.room?.presentUsers?JSON.parse(photo.room?.presentUsers).length:''} going today</span>
+                </div>
+                
+                <div className="mingle-overlay-modal">
+                  <FaUserFriends className="chat-icon liked" />
+                  <span>{(photo.room?.mingle_choices)?(photo.room?.mingle_choices.filter(choice => choice.status === 'matched').length):''} mingles</span>
+                </div>
 
               </div>
             </div>
@@ -152,7 +173,7 @@ const PhotoModal = ({ photo, onClose, activeCategoryName: propActiveCategoryName
                   </span>
                 </div>
                 <div className="members">
-                  <span className="members-title"><FaUsers /> Members</span>
+                  <span className="members-title"><FaUsers /> Visitors</span>
                   <span className="members-count">
                     {photo.members??'100+'}
                   </span>

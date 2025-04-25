@@ -57,7 +57,7 @@ const Upload = ({fetchPhotos,fetchSponsorPhotos}) => {
     files.forEach((file) => formData.append('images', file));
     formData.append('mediaType', mediaType);
     formData.append('name', name);
-    formData.append('category', category);
+    formData.append('categoryId', category);
     // formData.append('clientId', client);
     if (client) {
       formData.append('clientId', client);

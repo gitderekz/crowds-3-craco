@@ -38,9 +38,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      category: {
-        type: DataTypes.STRING,
+      categoryId: {
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+          model: 'categories', // References the users table
+          key: 'id',
+        },
       },
       event: {
         type: DataTypes.STRING,
@@ -95,6 +99,9 @@ module.exports = (sequelize, DataTypes) => {
   
       // A photo can have many likes
       photo.hasMany(models.like, { foreignKey: 'photoId', onDelete: 'CASCADE' });
+  
+      // A photo belongs to a category
+      photo.belongsTo(models.category, { foreignKey: 'categoryId', onDelete: 'CASCADE' });
     };
   
     return photo;

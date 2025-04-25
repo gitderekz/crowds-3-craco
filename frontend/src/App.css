@@ -1173,6 +1173,31 @@
     transition: all 0.3s ease;
   }
   
+  .member-overlay-modal,
+  .going-overlay-modal,
+  .mingle-overlay-modal {
+    color: white;
+    padding: 15px 10px;
+    margin-top: 5px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    /* z-index: 3; */
+    transition: all 0.3s ease;
+  }
+  .member-overlay-modal {
+    background: var(--primary-color);
+  }
+  .going-overlay-modal {
+    background: #8c7850;
+  }
+  .mingle-overlay-modal {
+    background: #a78c8c;
+  }
+  
   .chat-overlay:hover {
     background: rgba(0, 0, 0, 0.9);
   }

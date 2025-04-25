@@ -225,7 +225,7 @@ exports.getUserRooms = async (req, res) => {
 exports.getRoomParticipants = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
-    const { roomId } = req.params;
+    const { roomId, name } = req.params;
     const userId = req.user.id;
 
     // 1. Check if room exists
@@ -242,8 +242,9 @@ exports.getRoomParticipants = async (req, res) => {
     // 2. If room doesn't exist, create it (first user)
     if (!room) {
       room = await db.room.create({
-        id: roomId,
-        name: `Room ${roomId}`,
+        photoId: roomId,
+        presentUsers:[],
+        name,
         isGroup: true
       }, { transaction });
 
@@ -270,27 +271,27 @@ exports.getRoomParticipants = async (req, res) => {
         createdAt: new Date(),
         updatedAt: new Date()
       }, { transaction });
-
-      // Refresh room data after adding member
-      room = await db.room.findByPk(roomId, {
-        include: [{
-          model: db.user,
-          as: 'members',
-          through: { attributes: [] },
-          attributes: ['id', 'username', 'avatar', 'online', 'lastSeen']
-        }],
-        transaction
-      });
     }
 
     await transaction.commit();
 
+    // Refresh room data after adding member
+    room = await db.room.findByPk(room.id, {
+      include: [{
+        model: db.user,
+        as: 'members',
+        through: { attributes: [] },
+        attributes: ['id', 'username', 'avatar', 'online', 'lastSeen']
+      }],
+      // transaction
+    });
+
     // Format response
-    const participants = room.members.map(member => ({
+    const participants = room.members?.map(member => ({
       ...member.toJSON(),
       online: member.online || false,
       lastSeen: member.lastSeen || null
-    }));
+    })) || [];
 
     res.json(participants);
   } catch (error) {
