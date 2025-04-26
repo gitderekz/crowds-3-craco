@@ -7,23 +7,55 @@ const { Op } = require('sequelize');
 const { authenticate, authorize } = require('../middlewares/authMiddleware');
 
 // Toggle mingle status
-router.post('/toggle', authenticate, async (req, res) => {
+router.post('/toggle/:photoId', authenticate, async (req, res) => {
   try {
     const { userId } = req.body;
+    let { photoId } = req.params;
+    let currentRoomMingleStatus;
+    photoId = Number(photoId); // Ensure photoId is a number
     
     // Find or create mingle status
     const [mingleStatus, created] = await db.mingleStatus.findOrCreate({
       where: { userId },
-      defaults: { isMingling: true }
+      defaults: { 
+        isMingling: true, 
+        roomId: photoId ? [photoId] : [] 
+      }
     });
 
     // Toggle if already exists
     if (!created) {
-      mingleStatus.isMingling = !mingleStatus.isMingling;
+      // Ensure roomId is a JSON array
+      const currentRoomIds = Array.isArray(mingleStatus.roomId)
+      ? [...mingleStatus.roomId]
+      : Array.isArray(JSON.parse(mingleStatus.roomId))
+        ? JSON.parse(mingleStatus.roomId)
+        : [];
+        
+      if (photoId) {
+        const index = currentRoomIds.indexOf(photoId);
+
+        if (index === -1) {
+          // Only add roomId if not already present in list
+          currentRoomIds.push(photoId);
+        } else {
+          // Remove photoId if present
+          currentRoomIds.splice(index, 1);
+        }
+      }
+      // Update roomId
+      mingleStatus.roomId = currentRoomIds;
+
+      // Set isMingling to false only if roomId is empty
+      mingleStatus.isMingling = currentRoomIds.length > 0;
+      if (mingleStatus.isMingling) {
+        currentRoomMingleStatus = currentRoomIds.includes(photoId);
+      }
+
       await mingleStatus.save();
     }
 
-    res.json({ isMingling: mingleStatus.isMingling });
+    res.json({ isMingling: currentRoomMingleStatus??mingleStatus.isMingling });
   } catch (error) {
     console.error('Error toggling mingle status:', error);
     res.status(500).json({ message: 'Error toggling mingle status' });
@@ -175,9 +207,9 @@ router.post('/ignore', authenticate, async (req, res) => {
 });
 
 // Get potential matches (opposite sex who are mingling)
-router.get('/potential-matches/:userId', authenticate, async (req, res) => {
+router.get('/potential-matches/:userId/:photoId', authenticate, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId, photoId } = req.params;
     
     // Get current user's gender
     const currentUser = await db.user.findByPk(userId);
@@ -188,6 +220,7 @@ router.get('/potential-matches/:userId', authenticate, async (req, res) => {
     // Get all existing choices involving this user
     const existingChoices = await db.mingleChoice.findAll({
       where: {
+        roomId: photoId,
         [Op.or]: [
           {
             [Op.and]: [
@@ -219,7 +252,10 @@ router.get('/potential-matches/:userId', authenticate, async (req, res) => {
     const potentialMatches = await db.user.findAll({
       include: [{
         model: db.mingleStatus,
-        where: { isMingling: true },
+        where: { 
+          [Op.and]: db.sequelize.literal(`JSON_CONTAINS(roomId, '[${photoId}]')`),
+          isMingling: true, 
+        },
         required: true,
         as:'mingleStatus'
       }],
@@ -240,10 +276,12 @@ router.get('/potential-matches/:userId', authenticate, async (req, res) => {
 });
 
 // Get admired
-router.get('/admired/:userId', async (req, res) => {
+router.get('/admired/:userId/:photoId', async (req, res) => {
+  const {userId, photoId} = req.params;
   try {
     const admired = await db.mingleChoice.findAll({
       where: {
+        roomId: photoId,
         chooserId: req.params.userId,
         status: 'pending'
       },
@@ -260,10 +298,12 @@ router.get('/admired/:userId', async (req, res) => {
 });
 
 // Get admirers
-router.get('/admirers/:userId', async (req, res) => {
+router.get('/admirers/:userId/:photoId', async (req, res) => {
+  const {userId, photoId} = req.params;
   try {
     const admirers = await db.mingleChoice.findAll({
       where: {
+        roomId: photoId,
         chosenId: req.params.userId,
         status: 'pending'
       },
@@ -280,16 +320,20 @@ router.get('/admirers/:userId', async (req, res) => {
 });
 
 // Get all admirers
-router.get('/all-admirers/:userId', async (req, res) => {
+router.get('/all-admirers/:userId/:photoId', async (req, res) => {
+  const {userId, photoId} = req.params;
   try {
-    const { userId } = req.params;
-    const [mStatus, allAdmirers] = await Promise.all([
+    const [mingleStatus, allAdmirers] = await Promise.all([
       db.mingleStatus.findOne({ 
-        where: { userId },
+        where: {
+          [Op.and]: db.sequelize.literal(`JSON_CONTAINS(roomId, '[${photoId}]')`), 
+          userId 
+        },
         attributes: ['isMingling']
       }),
       db.mingleChoice.findAll({
         where: {
+          roomId: photoId,
           [Op.or]: [
             { chosenId: userId },
             { chooserId: userId, status: 'matched' }
@@ -305,18 +349,22 @@ router.get('/all-admirers/:userId', async (req, res) => {
 
     res.json({
       allAdmirers: allAdmirers.map(a => a.chooser),
-      isMingling: mStatus?.isMingling || false
+      isMingling: mingleStatus?.isMingling || false
     });
   } catch (error) {
+    console.log("Nimepigwa=",error);
+    
     res.status(500).json({ message: 'Error fetching admirers' });
   }
 });
 
 // Get admirers
-router.get('/matches/:userId', async (req, res) => {
+router.get('/matches/:userId/:photoId', async (req, res) => {
+  const {userId, photoId} = req.params
   try {
     const matches = await db.mingleChoice.findAll({
       where: {
+        roomId:photoId,
         [Op.or]: [
           { chooserId: req.params.userId, status: 'matched' },
           { chosenId: req.params.userId, status: 'matched' }

@@ -18,6 +18,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: false
       },
+      roomId: {
+        type: DataTypes.JSON, // tells Sequelize to treat it as JSON
+        allowNull: true,       // or false, depending on your logic
+        defaultValue: []       // optional default
+      },      
       createdAt: {
         type: DataTypes.DATE,
         allowNull: false,

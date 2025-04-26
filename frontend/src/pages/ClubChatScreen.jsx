@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomAlert from '../components/CustomAlert';
-import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaFile, FaUserFriends, FaInfoCircle, FaCheck, FaSpinner, FaPhone } from 'react-icons/fa';
+import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaFile, FaUserFriends, FaInfoCircle, FaCheck, FaSpinner, FaPhone, FaUbuntu, FaApper, FaBattleNet } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
 import io from 'socket.io-client';
 import { api } from '../services/authService';
@@ -77,7 +77,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const [callType, setCallType] = useState(null);
   const { callTechnology, toggleCallTechnology } = useVideoCall();
   
-  // Fetch participants from server
+  // Fetch participants/members from server
   useEffect(() => {
     const fetchParticipants = async () => {
       setLoadingParticipants(true);
@@ -162,7 +162,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   }, [/*room.photoId, room.name */isTyperPresent]);
 
   // Fetch initial presence data & all admirers when component mounts
-  const usesEffect = (() => {
+  useEffect(() => {
     const fetchInitialPresence = async () => {
       try {
         const response = await axios.get(
@@ -185,7 +185,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
     };
     const fetchAllAdmirers = async () => {
         // Get existing admirers
-        const admirersResponse = await api.get(`/mingle/all-admirers/${currentUserId}`,
+        const admirersResponse = await api.get(`/mingle/all-admirers/${currentUserId}/${room.photoId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('accessToken')}`
@@ -604,7 +604,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   // mingle functions
   const toggleMingle = async () => {
     try {
-      const response = await api.post('/mingle/toggle', { userId: currentUserId },
+      const response = await api.post(`/mingle/toggle/${room.photoId}`, { userId: currentUserId },
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('accessToken')}`
@@ -621,7 +621,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
   const openMingle = async () => {
       if (isMingling) {
         // Get all opposite sex to match
-        const matchesResponse = await api.get(`/mingle/potential-matches/${currentUserId}`,
+        const matchesResponse = await api.get(`/mingle/potential-matches/${currentUserId}/${room.photoId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('accessToken')}`
@@ -631,7 +631,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         setPotentialMatches(matchesResponse.data);
       
         // Get existing admired
-        const admiredResponse = await api.get(`/mingle/admired/${currentUserId}`,
+        const admiredResponse = await api.get(`/mingle/admired/${currentUserId}/${room.photoId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('accessToken')}`
@@ -641,7 +641,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         setAdmired(admiredResponse.data);
       
         // Get existing admirers
-        const admirersResponse = await api.get(`/mingle/admirers/${currentUserId}`,
+        const admirersResponse = await api.get(`/mingle/admirers/${currentUserId}/${room.photoId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('accessToken')}`
@@ -651,7 +651,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
         setAdmirers(admirersResponse.data);
         
         // Get existing matches
-        const existingMatchesResponse = await api.get(`/mingle/matches/${currentUserId}`,
+        const existingMatchesResponse = await api.get(`/mingle/matches/${currentUserId}/${room.photoId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('accessToken')}`
@@ -906,8 +906,8 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 key={msg.id || msg.tempId} 
                 className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
               >
-                <i style={{fontSize:"12px"}}>{msg.sender.username}</i>
-                <hr style={{margin:"0", padding:"0", textDecoration:"none"}}/>
+                <i style={{fontSize:"12px"}}>{msg.sender.username} <FaBattleNet/></i>
+                {/* <hr style={{margin:"0", padding:"0", textDecoration:"none"}}/> */}
                 {renderMessageContent(msg)}
                 <div className="message-time">
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1048,6 +1048,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
             <div className="mingle-content">
               <div className={`mingle-list ${theme}`}>
                 {/* Show matches first */}
+                {matches.length},
                 {matches.map(user => (
                   <div 
                     key={user.id} 
@@ -1074,6 +1075,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 ))}
                 
                 {/* Show admired 2nd */}
+                {admired.length},
                 {admired.map(user => {
                   // const user = participants.find(p => parseInt(p.id) === parseInt(admirerId));
                   if (!user) return null;
@@ -1104,6 +1106,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 })}
                 
                 {/* Show admirers 3rd */}
+                {admirers.length},
                 {admirers.map(user => {
                   // const user = participants.find(p => parseInt(p.id) === parseInt(admirerId));
                   if (!user) return null;
@@ -1134,6 +1137,7 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 })}
                 
                 {/* Show other potential matches 4th */}
+                {potentialMatches.length}
                 {potentialMatches//.filter(user => !matches.includes(user.id) && !admirers.includes(user.id))
                 .map(user => (
                     <div 

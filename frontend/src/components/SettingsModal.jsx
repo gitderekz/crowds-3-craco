@@ -62,19 +62,22 @@ const SettingsModal = ({ onClose, userId }) => {
           // Initialize photo settings if photos exist
           if (photosResponse.data.length > 0) {
             const firstPhoto = photosResponse.data[0];
+          
             setPhotoSettings({
-              schedule: firstPhoto.schedule || [],
-              location: firstPhoto.location || {
+              schedule: firstPhoto.schedule ? JSON.parse(firstPhoto.schedule) : [],
+              location: firstPhoto.location ? JSON.parse(firstPhoto.location) : {
                 name: '',
                 street: '',
                 building: '',
                 geoLocation: ''
               },
-              services: firstPhoto.services || [],
-              gallery: firstPhoto.gallery || []
+              services: firstPhoto.services ? JSON.parse(firstPhoto.services) : [],
+              gallery: firstPhoto.gallery ? JSON.parse(firstPhoto.gallery) : []
             });
+          
             setSelectedPhotoId(firstPhoto.id);
           }
+          
   
           setIsLoading(false);
         } catch (err) {
@@ -388,19 +391,20 @@ const SettingsModal = ({ onClose, userId }) => {
                           const selectedPhoto = photos.find(p => p.id === parseInt(photoId));
                           if (selectedPhoto) {
                             setPhotoSettings({
-                              schedule: selectedPhoto.schedule || [],
-                              location: selectedPhoto.location || {
+                              schedule: selectedPhoto.schedule ? JSON.parse(selectedPhoto.schedule) : [],
+                              location: selectedPhoto.location ? JSON.parse(selectedPhoto.location) : {
                                 name: '',
                                 street: '',
                                 building: '',
                                 geoLocation: ''
                               },
-                              services: selectedPhoto.services || [],
-                              gallery: selectedPhoto.gallery || []
+                              services: selectedPhoto.services ? JSON.parse(selectedPhoto.services) : [],
+                              gallery: selectedPhoto.gallery ? JSON.parse(selectedPhoto.gallery) : []
                             });
                           }
                         }}
                       >
+                        <option value="">Select a photo</option>
                         {photos.map(photo => (
                           <option key={photo.id} value={photo.id}>
                             {photo.name}
@@ -412,7 +416,7 @@ const SettingsModal = ({ onClose, userId }) => {
                     <div className="section-title">
                       <FaCalendarAlt /> Schedule
                     </div>
-                    {photos.schedule?JSON.parse(photos.schedule)?.map((item, index) => (
+                    {photoSettings.schedule.map((item, index) => (
                       <div key={index} className="schedule-item">
                         <input
                           type="text"
@@ -434,19 +438,15 @@ const SettingsModal = ({ onClose, userId }) => {
                           ×
                         </button>
                       </div>
-                    )):''}
-                    <button
-                      type="button"
-                      className="add-button"
-                      onClick={addScheduleItem}
-                    >
+                    ))}
+                    <button type="button" className="add-button" onClick={addScheduleItem}>
                       + Add Schedule Item
                     </button>
 
                     <div className="section-title">
                       <FaListUl /> Services
                     </div>
-                    {photos.services?JSON.parse(photos.services)?.map((service, index) => (
+                    {photoSettings.services.map((service, index) => (
                       <div key={index} className="service-item">
                         <input
                           type="text"
@@ -462,12 +462,8 @@ const SettingsModal = ({ onClose, userId }) => {
                           ×
                         </button>
                       </div>
-                    )):''}
-                    <button
-                      type="button"
-                      className="add-button"
-                      onClick={addService}
-                    >
+                    ))}
+                    <button type="button" className="add-button" onClick={addService}>
                       + Add Service
                     </button>
                   </div>
@@ -482,7 +478,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="name"
-                        value={photos.location?JSON.parse(photos.location)?.name:''}
+                        value={photoSettings.location.name}
                         onChange={handleLocationChange}
                         placeholder="Venue Name"
                       />
@@ -492,7 +488,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="street"
-                        value={photos.location?JSON.parse(photos.location)?.street:''}
+                        value={photoSettings.location.street}
                         onChange={handleLocationChange}
                         placeholder="123 Main Street"
                       />
@@ -502,7 +498,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="building"
-                        value={photos.location?JSON.parse(photos.location)?.building:''}
+                        value={photoSettings.location.building}
                         onChange={handleLocationChange}
                         placeholder="Building A"
                       />
@@ -512,7 +508,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       <input
                         type="text"
                         name="geoLocation"
-                        value={photos.location?JSON.parse(photos.location)?.geoLocation:''}
+                        value={photoSettings.location.geoLocation}
                         onChange={handleLocationChange}
                         placeholder="40.7128° N, 74.0060° W"
                       />
@@ -531,7 +527,7 @@ const SettingsModal = ({ onClose, userId }) => {
                       />
                     </div>
                     <div className="gallery-preview">
-                      {photos.location?JSON.parse(photos.gallery)?.map((image, index) => (
+                      {photoSettings.gallery.map((image, index) => (
                         <div key={index} className="gallery-item">
                           {typeof image === 'string' ? (
                             <img
@@ -549,7 +545,7 @@ const SettingsModal = ({ onClose, userId }) => {
                             ×
                           </button>
                         </div>
-                      )):''}
+                      ))}
                     </div>
                   </div>
                 </div>

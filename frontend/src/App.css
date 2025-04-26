@@ -473,7 +473,7 @@
     padding: 0.5rem;
     display: inline-block;
     cursor: pointer;
-    color: #333333;
+    color: #ffffff;
   }
 
   .dark .close-button {
@@ -525,7 +525,7 @@
     flex-direction: column;
     gap: 15px;
     height: calc(90vh - 200px);
-    /* overflow-y: auto; */
+    overflow-y: auto;
     /* padding-right: 10px; */
   }
 
@@ -610,7 +610,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--primary-color);
+    color: white;
   }
 
   .schedule-item,
@@ -667,6 +667,7 @@
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 10px;
     margin-top: 10px;
+    /* margin-bottom: 50px; */
   }
 
   .gallery-item {
@@ -763,6 +764,7 @@
 
     .avatar-upload {
       flex-direction: column;
+      align-items: start;
     }
 
     .password-change-section {

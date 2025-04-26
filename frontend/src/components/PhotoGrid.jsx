@@ -9,7 +9,7 @@ import PrivateChatScreen from '../pages/PrivateChatScreen';
 import { ThemeContext } from '../App';
 import AuthModal from './AuthModal';
 
-const PhotoGrid = ({ photos, activeCategoryName }) => {
+const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
   const { theme } = useContext(ThemeContext);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,9 +34,8 @@ const PhotoGrid = ({ photos, activeCategoryName }) => {
   }, []);
 
   useEffect(()=>{
-console.log("activeCategoryName",activeCategoryName);
-
-  },[activeCategoryName])
+    activeCategoryName = activeCategoryName??localStorage.getItem('activeCategoryName');
+  },[])
 
   const showAlert = (message, type) => {
     setAlert({ message, type });
@@ -128,27 +127,27 @@ console.log("activeCategoryName",activeCategoryName);
       )}
 
       {filteredPhotos.length === 0 ? (
+        isSearching?
+        [{ id:1, name: "placeholder" }, { id:2, name: "placeholder" }, { id:3, name: "placeholder" }].map((placeholder) => {
+          return (
+            <div key={placeholder.id} className="photo-item" >
+              <div>Loading crowd...</div>
+              <div className="video-thumbnail">
+                <img
+                  src={`${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholders/flyd-fYZW5-Q-4cI-unsplash.jpg`}
+                  alt={placeholder.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    if (e.target.src !== `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`) {
+                      e.target.src = `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`;
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          );
+        }):
         <div>No content in {activeCategoryName}</div>
-        // <div>Loading crowds...</div>
-        // [{ id:1, name: "placeholder" }, { id:2, name: "placeholder" }, { id:3, name: "placeholder" }].map((placeholder) => {
-        //   return (
-        //     <div key={placeholder.id} className="photo-item" >
-        //       <div>Loading crowd...</div>
-        //       <div className="video-thumbnail">
-        //         <img
-        //           src={`${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholders/flyd-fYZW5-Q-4cI-unsplash.jpg`}
-        //           alt={placeholder.name}
-        //           loading="lazy"
-        //           onError={(e) => {
-        //             if (e.target.src !== `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`) {
-        //               e.target.src = `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`;
-        //             }
-        //           }}
-        //         />
-        //       </div>
-        //     </div>
-        //   );
-        // })
         
       ) : (
         filteredPhotos.map((photo) => {

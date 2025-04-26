@@ -82,7 +82,7 @@
     overflow: hidden;
     position: relative;
     padding: 20px;
-    align-items: center;
+    align-items: start;
   }
   
   /* User List Section */

@@ -88,7 +88,7 @@ const Photos = ({ filteredPhotos, isSearching, activeCategoryName }) => {
   return (
     <div className="photos">
       <h1>Crowds - {activeCategoryName}</h1>
-      <PhotoGrid photos={isSearching ? filteredPhotos : photos } activeCategoryName={activeCategoryName} />
+      <PhotoGrid isSearching={isSearching} photos={isSearching ? filteredPhotos : photos } activeCategoryName={activeCategoryName} />
       {filteredPhotos?.length > 0 && <button
         className={`load-more-btn ${theme === 'dark' ? 'dark' : ''}`}
         onClick={() => setPage(page + 1)}
