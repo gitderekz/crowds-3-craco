@@ -181,7 +181,7 @@ function App() {
                     {/* <NotificationBell /> */}
                     <Routes>
                       <Route path="/" element={<Home photos={filteredPhotos} />} />
-                      <Route path="/photos" element={<Photos filteredPhotos={isSearching?filteredPhotos:null} isSearching={isSearching} activeCategoryName={activeCategoryName} />} />
+                      <Route path="/photos" element={<Photos filteredPhotos={isSearching?filteredPhotos:null} isSearching={isSearching} activeCategoryName={activeCategoryName} setActiveCategoryName={setActiveCategoryName} />} />
                       <Route 
                         path="/upload" 
                         element={

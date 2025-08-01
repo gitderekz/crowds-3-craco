@@ -3,7 +3,8 @@ const db = require('../models');
 exports.getCategories = async (req, res) => {
     try {
         const categories = await db.category.findAll({
-        //   where: { parentId: null }, // Fetch only top-level categories
+          order: [['id', 'ASC']],
+          // where: { parentId: null }, // Fetch only top-level categories
           include: [{ model: db.category, as: 'children' }], // Include subcategories
         });
   

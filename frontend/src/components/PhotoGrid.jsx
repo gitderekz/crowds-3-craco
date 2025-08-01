@@ -33,10 +33,6 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
     };
   }, []);
 
-  useEffect(()=>{
-    activeCategoryName = activeCategoryName??localStorage.getItem('activeCategoryName');
-  },[])
-
   const showAlert = (message, type) => {
     setAlert({ message, type });
   };

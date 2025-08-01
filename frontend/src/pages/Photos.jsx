@@ -60,7 +60,7 @@ import PhotoGrid from '../components/PhotoGrid';
 import Header from '../components/Header';
 import { FaForward, FaPlay } from 'react-icons/fa';
 
-const Photos = ({ filteredPhotos, isSearching, activeCategoryName }) => {
+const Photos = ({ filteredPhotos, isSearching, activeCategoryName, setActiveCategoryName }) => {
   const { theme } = useContext(ThemeContext);  // Assuming theme is coming from ThemeContext
   const [searchParams] = useSearchParams();
   const category = searchParams.get('category');
@@ -68,6 +68,13 @@ const Photos = ({ filteredPhotos, isSearching, activeCategoryName }) => {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);  // Added state for loading indicator
 
+
+  useEffect(()=>{
+    if(!activeCategoryName){
+      setActiveCategoryName(localStorage.getItem('activeCategoryName'));
+    }
+  },[])
+  
   useEffect(() => {
     const fetchPhotos = async () => {
       setIsLoading(true);  // Set loading state to true when fetching starts

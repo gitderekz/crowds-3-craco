@@ -1048,7 +1048,6 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
             <div className="mingle-content">
               <div className={`mingle-list ${theme}`}>
                 {/* Show matches first */}
-                {matches.length},
                 {matches.map(user => (
                   <div 
                     key={user.id} 
@@ -1075,7 +1074,6 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 ))}
                 
                 {/* Show admired 2nd */}
-                {admired.length},
                 {admired.map(user => {
                   // const user = participants.find(p => parseInt(p.id) === parseInt(admirerId));
                   if (!user) return null;
@@ -1106,7 +1104,6 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 })}
                 
                 {/* Show admirers 3rd */}
-                {admirers.length},
                 {admirers.map(user => {
                   // const user = participants.find(p => parseInt(p.id) === parseInt(admirerId));
                   if (!user) return null;
@@ -1137,7 +1134,6 @@ const ClubChatScreen = ({ room, onClose, onOpenPrivateChat, setIsAuthModalOpen }
                 })}
                 
                 {/* Show other potential matches 4th */}
-                {potentialMatches.length}
                 {potentialMatches//.filter(user => !matches.includes(user.id) && !admirers.includes(user.id))
                 .map(user => (
                     <div 

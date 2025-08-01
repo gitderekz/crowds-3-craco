@@ -566,28 +566,6 @@ component at the right end of screen
 
 I want the tabs to ocuppy the height and width of 'chat-layout'
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  .chat-section,
-  .messages-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-  .messages-container {
-    flex: 1;
-    padding: 15px;
-    overflow-y: auto;
-  }
-
-.participants-section{
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.participants-list{
-  flex: 1;
-  padding: 15px;
-  overflow-y: auto;
-}
 
 
 
@@ -616,6 +594,12 @@ placetobe.com
 tukutane
 
 edit & delete
+TODO
+--otp/link
+--map
+--mobile
+--tafuta kwa mikoa/wilaya
+--boresha maongezi ya video & sauti
 
 #4fd1c5; /* Neon Blue for light mode */,
 #4CAF50,
@@ -751,9 +735,6 @@ The present button should only work once and be disabled (user can only upvote/d
 The absent button should work only if the current user is present, it should also work once then get disabled
 The increment/decrement of participants should be across the whole app, These events should be broadcasted realtime for everone in group/club to see number of people present.
 When present is disabled absent should be enabled, and viceversa
-
---otp/link
---map
 
 Here are some of my codes
 app.jsx
