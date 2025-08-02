@@ -32,7 +32,9 @@ const server = http.createServer(app);
 // Configure Socket.io with CORS
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',') 
+    : 'http://192.168.8.101:3000',
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -42,9 +44,9 @@ const io = new Server(server, {
 const webRTCService = new WebRTCService(io);
 
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN ,
-    // ? process.env.CORS_ORIGIN.split(',') 
-    // : 'http://192.168.8.101:3000',
+  origin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',') 
+    : 'http://192.168.8.101:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
