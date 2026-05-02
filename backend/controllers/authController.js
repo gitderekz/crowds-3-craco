@@ -30,11 +30,11 @@ exports.registerClient = async (req, res) => {
   const { username, email, password, role } = req.body;
 
   // Hash the password
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // const hashedPassword = await bcrypt.hash(password, 10);
 
   try {
     // Create the user in the database
-    const user = await db.user.create({ username, email, password: hashedPassword, role });
+    const user = await db.user.create({ username, email, password/*: hashedPassword*/, role });
 
     // // Generate a JWT token
     // const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
@@ -145,12 +145,12 @@ exports.register = async (req, res) => {
   // res.status(500).json({k:"V"});
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
     // Prepare user data
     const userData = {
       username,
       email,
-      password: hashedPassword,
+      password,//: hashedPassword,
       role
     };
     // Add avatar path if file was uploaded
@@ -195,14 +195,19 @@ exports.login = async (req, res) => {
       } 
     });
 
-    console.log('userfound',user);
+    console.log('userfound',user.email);
+    const hashedPassword = await bcrypt.hash(password, 10);
+// $2b$10$i7q0pjOX2ygwQzB.bymS2uMp3.V0/SXOO8DTso0L/0e6rtbfiO7w2
+    console.log('hashedPass: ',hashedPassword);
     
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      console.log('Invalid credentials for user:', username);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    console.log('User authenticated', { userId: user.id, username: user.username });
 
     const { accessToken, refreshToken } = generateTokens(user);
-
+    console.log('Tokens generated', { accessToken, refreshToken });
     res.json({ 
       accessToken, 
       refreshToken,

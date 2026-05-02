@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, 
-  FaPhone, FaVideoSlash,FaCheck, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
+import { FaPaperPlane, FaSmile, FaUser, FaFile, 
+  FaPhone, FaVideo, FaCheck, FaSpinner } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
 import { ThemeContext, SocketContext, NotificationContext } from '../App';
 import io from 'socket.io-client';
@@ -12,13 +11,13 @@ import VideoCall from '../components/media/VideoCall';
 import useMediaUpload from '../hooks/useMediaUpload';
 import MediaControls from '../components/media/MediaControls';
 import MediaPreview from '../components/media/MediaPreview';
-import {useVideoCall} from '../contexts/VideoCallContext'
+import { useVideoCall } from '../contexts/VideoCallContext';
+import { api } from '../services/authService';
 
 const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const { theme } = useContext(ThemeContext);
   const socket = useContext(SocketContext);
   const { setIncomingCall } = useContext(NotificationContext);
-  const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -30,14 +29,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
   const messagesEndRef = useRef(null);
   const [activeTab, setActiveTab] = useState('chat');
   const socketRef = useRef();
-  const { 
-    playNotification, 
-    playGroupChat, 
-    playCall, 
-    playError,
-    playForeground,
-    playSent
-  } = useSound();
+  const { playNotification, playSent } = useSound();
   const {
     mediaFiles,
     setMediaFiles,
@@ -50,131 +42,133 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     clearFiles
   } = useMediaUpload();
   
-  const currentUserId = localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null;
-  const roomId = [currentUserId, user.id].sort().join('-');
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+  const currentUserId = currentUser?.id;
+  
+  // Generate private room ID consistently
+  const generatePrivateRoomId = (user1Id, user2Id) => {
+    const sorted = [Number(user1Id), Number(user2Id)].sort((a, b) => a - b);
+    return `${sorted[0]}-${sorted[1]}`;
+  };
+  
+  const roomId = generatePrivateRoomId(currentUserId, user.id);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [failedMessages, setFailedMessages] = useState({});
   const token = localStorage.getItem('accessToken');
-  const [pendingMessages, setPendingMessages] = useState([]);
-  const [tempMessages, setTempMessages] = useState({});
   const tempMessagesRef = useRef({});
-  const [ringtone, setRingtone] = useState(null);
-  const { callTechnology, toggleCallTechnology } = useVideoCall();
 
-
-  useEffect(()=>{
+  useEffect(() => {
     if (!token) {
-      // Redirect to login or handle missing token
       return;
     }
-  })
-  // Initialize socket connection
+  }, [token]);
+
+  // Initialize socket connection and load messages
   useEffect(() => {
-    console.log('Initializing socket connection...'); // Add this
-    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+    console.log('PrivateChatScreen: Initializing for room:', roomId);
+    
+    const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+    socketRef.current = io(SOCKET_URL, {
       withCredentials: true,
       transports: ['websocket']
     });
 
-    // Add connection event listeners
     socketRef.current.on('connect', () => {
-      console.log('Socket connected:', socketRef.current.id);
+      console.log('Private chat socket connected:', socketRef.current.id);
+      socketRef.current.emit('joinRoom', { 
+        roomId, 
+        userId: currentUserId 
+      });
     });
   
     socketRef.current.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('Private chat socket disconnected');
     });
   
     socketRef.current.on('connect_error', (err) => {
       console.error('Socket connection error:', err);
     });
 
-    // Join private chat room
-    socketRef.current.emit('joinRoom', { 
-      roomId, 
-      userId: currentUserId 
-    });
-
-    // Load existing messages
+    // Load existing messages - FIRST ensure room exists
     const loadMessages = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_URL}/messages/${roomId}`,
+        // First, ensure room exists by fetching participants (this will create the room if it doesn't exist)
+        console.log('Ensuring room exists for private chat:', roomId);
+        await axios.get(
+          `${process.env.REACT_APP_API_URL}/rooms/${roomId}/${user.id}/participants?isGroup=false`,
           {
             headers: { 
-              Authorization: `Bearer ${localStorage.getItem('accessToken')}` 
+              Authorization: `Bearer ${token}` 
             }
           }
         );
-        setMessages(response.data); // Axios automatically parses JSON
+        
+        // Now fetch messages
+        const response = await api.get(`/messages/${roomId}`);
+        setMessages(response.data);
       } catch (error) {
         console.error('Error loading messages:', error);
-        // Optional: Add error handling for 401/403/404
-        if (error.response) {
-          console.error('Server responded with:', error.response.status);
-          if (error.response.status === 401) {
-            // Handle unauthorized (e.g., redirect to login)
-            onClose();
-            setIsAuthModalOpen(true);
+        if (error.response?.status === 401) {
+          onClose();
+          setIsAuthModalOpen(true);
+        } else {
+          // Try to get messages anyway (might be empty)
+          try {
+            const response = await api.get(`/messages/${roomId}`);
+            setMessages(response.data);
+          } catch (msgError) {
+            console.error('Still cannot get messages:', msgError);
+            setMessages([]);
           }
         }
       } finally {
         setIsLoading(false);
       }
     };
+    
     loadMessages();
 
     // Socket event listeners
     const handleNewMessage = (message) => {
-      console.log('SOCKET RECEIVE', message.tempId, tempMessagesRef.current, tempMessagesRef.current[message.tempId]);
+      console.log('PrivateChat received message:', message);
       
-      // Check if this is a response to our own message
       if (message.tempId && tempMessagesRef.current[message.tempId]) {
-        // Replace the temporary message with the actual one from server
         setMessages(prev => prev.map(msg => 
           msg.tempId === message.tempId ? { ...message, isPending: false } : msg
         ));
-        
-        // Remove from temp storage
         delete tempMessagesRef.current[message.tempId];
         playSent();
-        setTempMessages(prev => {
-          const newTemp = {...prev};
-          delete newTemp[message.tempId];
-          return newTemp;
-        });
-      } 
-      // If it's a new message from other user
-      else if (message.senderId !== currentUserId) {
+      } else if (message.senderId !== currentUserId) {
         setMessages(prev => [...prev, { ...message, isPending: false }]);
-        // Play sound only for new messages from others, not for our own messages
         playNotification();
       }
       scrollToBottom();
     };
 
-    socketRef.current.on('newMessage', handleNewMessage);
-
-    socketRef.current.on('typing', ({ userId, isTyping }) => {
-      if (userId === user.id) {
-        setRemoteIsTyping(isTyping);
-      }
-    });
-
-    socketRef.current.on('userStatus', ({ userId, online }) => {
-      if (userId === user.id) {
+    const handleUserStatus = ({ userId: statusUserId, online }) => {
+      if (statusUserId === user.id) {
         setIsOnline(online);
       }
-    });
+    };
+
+    const handleTypingEvent = ({ userId: typingUserId, isTyping: typing }) => {
+      if (typingUserId === user.id) {
+        setRemoteIsTyping(typing);
+      }
+    };
+
+    socketRef.current.on('newMessage', handleNewMessage);
+    socketRef.current.on('userStatus', handleUserStatus);
+    socketRef.current.on('typing', handleTypingEvent);
 
     return () => {
-      console.log('Cleaning up socket...'); // Add this
       socketRef.current.off('newMessage', handleNewMessage);
+      socketRef.current.off('userStatus', handleUserStatus);
+      socketRef.current.off('typing', handleTypingEvent);
       socketRef.current.disconnect();
     };
-  }, [roomId, user.id, currentUserId,/* playNotification,playSent*/]);
+  }, [roomId, user.id, currentUserId, token]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -182,11 +176,13 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 
   const handleTyping = (typing) => {
     setIsTyping(typing);
-    socketRef.current.emit('typing', { 
-      roomId, 
-      userId: currentUserId,
-      isTyping: typing 
-    });
+    if (socketRef.current) {
+      socketRef.current.emit('typing', { 
+        roomId, 
+        userId: currentUserId,
+        isTyping: typing 
+      });
+    }
   };
 
   const handleSendMessage = async () => {
@@ -207,6 +203,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 
       const newMessage = {
         content: message,
+        isGroup: false,
         type: mediaFiles.length ? mediaFiles[0].type.split('/')[0] : 'text',
         senderId: currentUserId,
         createdAt: new Date().toISOString(),
@@ -215,25 +212,22 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         mediaUrls: mediaUrls.length ? mediaUrls : undefined
       };
   
-      // Store temporary message in both state and ref
       tempMessagesRef.current[tempId] = newMessage;
-      setTempMessages(prev => ({...prev, [tempId]: newMessage}));
     
-      // Optimistic update
       setMessages(prev => [...prev, {
         ...newMessage,
         id: tempId,
-        sender: 'You'
+        sender: { username: 'You', id: currentUserId }
       }]);
       
-      // Emit to server
-      socketRef.current.emit('sendMessage', {
-        roomId,
-        message: {
-          ...newMessage,
-          tempId: tempId // Include tempId in the emitted message
-        }
-      });
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('sendMessage', {
+          roomId,
+          message: newMessage
+        });
+      } else {
+        console.error('Socket not connected');
+      }
 
       setMessage('');
       clearFiles();
@@ -241,42 +235,43 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
       scrollToBottom();
     } catch (error) {
       console.error('Error sending message:', error);
+      setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
     } finally {
       setIsSending(false);
     }
   };
   
-  // Update message rendering to handle media
   const renderMessageContent = (msg) => {
-    // if (msg.mediaUrls?.length) {
-    if (msg.mediaUrls?.length > 0 && (Array.isArray(msg.mediaUrls) || Array.isArray(JSON.parse(msg.mediaUrls)))) {
-      const mediaUrl = Array.isArray(msg.mediaUrls)?msg.mediaUrls:JSON.parse(msg.mediaUrls);
+    let mediaUrls = msg.mediaUrls;
+    if (typeof mediaUrls === 'string') {
+      try {
+        mediaUrls = JSON.parse(mediaUrls);
+      } catch (e) {
+        mediaUrls = [];
+      }
+    }
+    
+    if (mediaUrls?.length > 0) {
       return (
         <div className="message-media">
-          {mediaUrl.map((url, index) => {
+          {mediaUrls.map((url, index) => {
             if (msg.type === 'image') {
               return <img key={index} src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} alt={`Media ${index}`} className="message-media-item" />;
             } else if (msg.type === 'video') {
               return (
                 <video key={index} controls className="message-media-item">
-                  <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} type={`video/${url.split('.').pop()}`} />
+                  <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} />
                 </video>
               );
             } else if (msg.type === 'audio') {
               return (
                 <audio key={index} controls className="message-media-item">
-                  <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} type={`audio/${url.split('.').pop()}`} />
+                  <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} />
                 </audio>
               );
             } else {
               return (
-                <a 
-                  key={index} 
-                  href={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="message-file"
-                >
+                <a key={index} href={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} target="_blank" rel="noopener noreferrer" className="message-file">
                   <FaFile /> Download File
                 </a>
               );
@@ -293,25 +288,12 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     scrollToBottom();
   }, [messages]);
 
-
   // Handle incoming calls
   useEffect(() => {
     if (!socket) return;
 
     const handleIncomingCall = (callData) => {
       if (callData.callerId === user.id) {
-        // Stop any existing ringtone
-        if (ringtone) {
-          ringtone.pause();
-          ringtone.currentTime = 0;
-        }
-        
-        // Play new ringtone
-        const newRingtone = new Audio('/sounds/ringtone.mp3');
-        newRingtone.loop = true;
-        newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
-        setRingtone(newRingtone);
-        
         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
         if (confirmCall) {
           setCallType(callData.callType);
@@ -330,8 +312,6 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
             roomId: callData.roomId
           });
         }
-        newRingtone.pause();
-        setRingtone(null);
         setIncomingCall(null);
       }
     };
@@ -339,19 +319,14 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     socket.on('incoming-call', handleIncomingCall);
 
     return () => {
-      if (ringtone) {
-        ringtone.pause();
-        setRingtone(null);
-      }
       socket.off('incoming-call', handleIncomingCall);
     };
-  }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
+  }, [socket, user.id, currentUserId, setIncomingCall]);
 
   const startCall = (type) => {
     setCallType(type);
     setInCall(true);
     
-    // Notify the other user
     socket.emit('call-notification', {
       callType: type,
       callerId: currentUserId,
@@ -364,6 +339,8 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
     setInCall(false);
     setCallType(null);
   };
+
+  const { callTechnology, toggleCallTechnology } = useVideoCall();
 
   return (
     <div className={`private-chat-container ${theme}`}>
@@ -388,13 +365,6 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         </div>
         <div className="header-actions">
           <button 
-            className={`tech-toggle-btn ${theme}`}
-            onClick={toggleCallTechnology}
-            title={`Switch to ${callTechnology === 'webrtc' ? 'Agora' : 'WebRTC'}`}
-          >
-            {callTechnology === 'webrtc' ? 'Switch to Agora' : 'Switch to WebRTC'}
-          </button>
-          <button 
             className={`call-btn ${theme}`}
             onClick={() => startCall('video')}
           >
@@ -410,7 +380,6 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
         </div>
       </div>
       
-      {/* Mobile Tabs */}
       <div className={`mobile-tabs ${theme}`}>
         <button 
           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
@@ -427,35 +396,29 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
       </div>
 
       <div className="chat-layout">
-        {/* Messages Section */}
         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
           <div className="messages-container">
-            {messages.map(msg => (
-              <div 
-                key={msg.id || msg.tempId} 
-                className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
-              >
-                {/* {parseInt(msg.senderId) !== parseInt(currentUserId) && (
-                  <div className="sender-name">
-                    {msg.sender.username || 'Unknown User'}
+            {isLoading ? (
+              <div className="loading-messages">Loading messages...</div>
+            ) : (
+              messages.map(msg => (
+                <div 
+                  key={msg.id || msg.tempId} 
+                  className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
+                >
+                  {msg.sender?.username && parseInt(msg.senderId) !== parseInt(currentUserId) && (
+                    <div className="sender-name">{msg.sender.username}</div>
+                  )}
+                  {renderMessageContent(msg)}
+                  <div className="message-time">
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <span className="message-status">
+                      {msg.isPending ? <FaSpinner className="spinner" /> : <FaCheck className="check-icon" />}
+                    </span>
                   </div>
-                )} */}
-                
-                {renderMessageContent(msg)}
-                {/* <div className="message-content">{msg.content}</div> */}
-                <div className="message-time">
-                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {/* {msg.isPending && <FaSpinner className="spinner" />} */}
-                  <span className="message-status">
-                    {msg.isPending ? (
-                      <FaSpinner className="spinner" />
-                    ) : (
-                      <FaCheck className="check-icon" />
-                    )}
-                  </span>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -493,10 +456,7 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
                 }} />
               </div>
             )}
-            <MediaControls 
-              onFileChange={handleFileChange}
-              theme={theme}
-            />
+            <MediaControls onFileChange={handleFileChange} theme={theme} />
             <input
               type="text"
               value={message}
@@ -520,76 +480,32 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
           </div>
         </div>
 
-        {/* User Info Section */}
         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
-            <div className="receiver-avatar">
-                {user?.avatar ? (
-                <img className='user-avatar' src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user?.avatar??"/uploads/avatar/default-avatar.png"}`} alt={user.username} />
-                ) : (
-                <FaUser size={80} />
-                )}
+          <div className="receiver-avatar">
+            {user?.avatar ? (
+              <img className='user-avatar' src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} alt={user.username} />
+            ) : (
+              <FaUser size={80} />
+            )}
+          </div>
+          <h4>{user.username}</h4>
+          <p className={`status ${user.online ? 'online' : 'offline'}`}>
+            {user.online ? 'Online' : 'Offline'}
+          </p>
+          
+          <div className="user-details">
+            <div className="detail-item">
+              <span className="detail-label">Last Seen:</span>
+              <span className="detail-value">
+                {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
+              </span>
             </div>
-            <h4>{user.username}</h4>
-            <p className={`status ${user.online ? 'online' : 'offline'}`}>
-                {user.online ? 'Online' : 'Offline'}
-            </p>
-            
-            <div className="user-details">
-                <div className="detail-item">
-                <span className="detail-label">Last Seen:</span>
-                <span className="detail-value">
-                    {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
-                </span>
-                </div>
-                
-                <div className="detail-item">
-                <span className="detail-label">Member Since:</span>
-                <span className="detail-value">
-                    {new Date(user.joinDate).toLocaleDateString()}
-                </span>
-                </div>
-                
-                <div className="detail-item">
-                <span className="detail-label">Common Groups:</span>
-                <span className="detail-value">
-                    {user.commonGroups?.length || 0}
-                </span>
-                </div>
-            </div>
-            
-            <div className="user-actions">
-                <button className={`action-btn ${theme}`}>
-                <FaVideo /> Video Call
-                </button>
-                <button className={`action-btn ${theme}`}>
-                <FaPhone /> Voice Call
-                </button>
-            </div>
-            
-            <div className="shared-media">
-                <h5>Shared Media</h5>
-                <div className="media-grid">
-                {user.sharedMedia?.slice(0, 4).map((media, index) => (
-                    <div key={index} className="media-thumbnail">
-                    {media.type === 'image' ? (
-                        <img src={media.url} alt={`Shared ${index}`} />
-                    ) : media.type === 'video' ? (
-                        <FaVideo />
-                    ) : (
-                        <FaFile />
-                    )}
-                    </div>
-                ))}
-                {(!user.sharedMedia || user.sharedMedia.length === 0) && (
-                    <p className="no-media">No shared media yet</p>
-                )}
-                </div>
-            </div>
-            
-            <div className="user-bio">
-                <h5>About</h5>
-                <p>{user.bio || 'No bio available'}</p>
-            </div>
+          </div>
+          
+          <div className="user-bio">
+            <h5>About</h5>
+            <p>{user.bio || 'No bio available'}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -597,217 +513,29 @@ const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 };
 
 export default PrivateChatScreen;
-// ************************************
 
-// import React, { useState, useRef, useEffect, useContext } from 'react';
-// import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, FaPhone } from 'react-icons/fa';
-// import EmojiPicker from 'emoji-picker-react';
-// import { ThemeContext } from '../App';
-
-// const PrivateChatScreen = ({ user, onClose }) => {
-//   const { theme } = useContext(ThemeContext);
-//   const [message, setMessage] = useState('');
-//   const [messages, setMessages] = useState([]);
-//   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-//   const messagesEndRef = useRef(null);
-//   const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'info'
-
-//   const handleSendMessage = () => {
-//     if (message.trim()) {
-//       setMessages([...messages, {
-//         id: Date.now(),
-//         text: message,
-//         sender: 'You',
-//         timestamp: new Date().toLocaleTimeString()
-//       }]);
-//       setMessage('');
-//     }
-//   };
-
-//   useEffect(() => {
-//     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-//   }, [messages]);
-
-//   return (
-//     <div className={`private-chat-container ${theme}`}>
-//       <div className={`chat-header ${theme}`}>
-//         <h3>Chat with {user.username}</h3>
-//         <button onClick={onClose}>✕</button>
-//       </div>
-      
-//       {/* Mobile Tabs */}
-//       <div className={`mobile-tabs ${theme}`}>
-//         <button 
-//           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
-//           onClick={() => setActiveTab('chat')}
-//         >
-//           <FaPaperPlane /> Chat
-//         </button>
-//         <button 
-//           className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
-//           onClick={() => setActiveTab('info')}
-//         >
-//           <FaUser /> Info
-//         </button>
-//       </div>
-
-//       <div className="chat-layout">
-//         {/* Messages Section - now conditionally rendered */}
-//         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
-//           <div className="messages-container">
-//             {messages.map(msg => (
-//               <div 
-//                 key={msg.id} 
-//                 className={`message ${msg.sender === 'You' ? 'sent' : 'received'} ${theme}`}
-//               >
-//                 <div className="message-content">{msg.text}</div>
-//                 <div className="message-time">{msg.timestamp}</div>
-//               </div>
-//             ))}
-//             <div ref={messagesEndRef} />
-//           </div>
-
-//           <div className="message-input">
-//             <button 
-//               className={`emoji-btn ${theme}`}
-//               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-//             >
-//               <FaSmile />
-//             </button>
-//             {showEmojiPicker && (
-//               <div className="emoji-picker">
-//                 <EmojiPicker onEmojiClick={(e) => {
-//                   setMessage(m => m + e.emoji);
-//                   setShowEmojiPicker(false);
-//                 }} />
-//               </div>
-//             )}
-//             <input
-//               type="text"
-//               value={message}
-//               onChange={(e) => setMessage(e.target.value)}
-//               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-//               placeholder="Type a message..."
-//               className={theme}
-//             />
-//             <div className="media-buttons">
-//               <button className={theme}><FaImage /></button>
-//               <button className={theme}><FaVideo /></button>
-//               <button className={theme}><FaMusic /></button>
-//             </div>
-//             <button 
-//               onClick={handleSendMessage} 
-//               className={`send-button ${theme}`}
-//             >
-//               <FaPaperPlane />
-//             </button>
-//           </div>
-//         </div>
-
-//         {/* User Info Section - now conditionally rendered */}
-//         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
-//             <div className="user-avatar">
-//                 {user.avatar ? (
-//                 <img src={user.avatar} alt={user.username} />
-//                 ) : (
-//                 <FaUser size={80} />
-//                 )}
-//             </div>
-//             <h4>{user.username}</h4>
-//             <p className={`status ${user.online ? 'online' : 'offline'}`}>
-//                 {user.online ? 'Online' : 'Offline'}
-//             </p>
-            
-//             <div className="user-details">
-//                 <div className="detail-item">
-//                 <span className="detail-label">Last Seen:</span>
-//                 <span className="detail-value">
-//                     {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
-//                 </span>
-//                 </div>
-                
-//                 <div className="detail-item">
-//                 <span className="detail-label">Member Since:</span>
-//                 <span className="detail-value">
-//                     {new Date(user.joinDate).toLocaleDateString()}
-//                 </span>
-//                 </div>
-                
-//                 <div className="detail-item">
-//                 <span className="detail-label">Common Groups:</span>
-//                 <span className="detail-value">
-//                     {user.commonGroups?.length || 0}
-//                 </span>
-//                 </div>
-//             </div>
-            
-//             <div className="user-actions">
-//                 <button className={`action-btn ${theme}`}>
-//                 <FaVideo /> Video Call
-//                 </button>
-//                 <button className={`action-btn ${theme}`}>
-//                 <FaPhone /> Voice Call
-//                 </button>
-//             </div>
-            
-//             <div className="shared-media">
-//                 <h5>Shared Media</h5>
-//                 <div className="media-grid">
-//                 {user.sharedMedia?.slice(0, 4).map((media, index) => (
-//                     <div key={index} className="media-thumbnail">
-//                     {media.type === 'image' ? (
-//                         <img src={media.url} alt={`Shared ${index}`} />
-//                     ) : media.type === 'video' ? (
-//                         <FaVideo />
-//                     ) : (
-//                         <FaFile />
-//                     )}
-//                     </div>
-//                 ))}
-//                 {(!user.sharedMedia || user.sharedMedia.length === 0) && (
-//                     <p className="no-media">No shared media yet</p>
-//                 )}
-//                 </div>
-//             </div>
-            
-//             <div className="user-bio">
-//                 <h5>About</h5>
-//                 <p>{user.bio || 'No bio available'}</p>
-//             </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default PrivateChatScreen;
-
-
-// ****************************************************
-
+// ----------------------------
 // import React, { useState, useEffect, useRef, useContext } from 'react';
 // import axios from 'axios';
-// import { 
-//   FaPaperPlane, 
-//   FaSmile, 
-//   FaImage, 
-//   FaVideo, 
-//   FaUser, 
-//   FaFile, 
-//   FaPhone,
-//   FaCheck,
-//   FaExclamationTriangle,
-//   FaSpinner
-// } from 'react-icons/fa';
+// import { useNavigate } from 'react-router-dom';
+// import { FaPaperPlane, FaSmile, FaUser, FaFile, 
+//   FaPhone, FaVideo, FaCheck, FaSpinner } from 'react-icons/fa';
 // import EmojiPicker from 'emoji-picker-react';
-// import { ThemeContext } from '../App';
+// import { ThemeContext, SocketContext, NotificationContext } from '../App';
 // import io from 'socket.io-client';
 // import useSound from '../hooks/useSound';
-// import VideoCall from '../components/VideoCall';
-// import './PrivateChatScreen.css'; // Make sure to create this CSS file
+// import VideoCall from '../components/media/VideoCall';
+// import useMediaUpload from '../hooks/useMediaUpload';
+// import MediaControls from '../components/media/MediaControls';
+// import MediaPreview from '../components/media/MediaPreview';
+// import { useVideoCall } from '../contexts/VideoCallContext';
+// import { api } from '../services/authService';
 
-// const PrivateChatScreen = ({ user, onClose }) => {
+// const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
 //   const { theme } = useContext(ThemeContext);
+//   const socket = useContext(SocketContext);
+//   const { setIncomingCall } = useContext(NotificationContext);
+//   const navigate = useNavigate();
 //   const [message, setMessage] = useState('');
 //   const [messages, setMessages] = useState([]);
 //   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -819,47 +547,79 @@ export default PrivateChatScreen;
 //   const messagesEndRef = useRef(null);
 //   const [activeTab, setActiveTab] = useState('chat');
 //   const socketRef = useRef();
-//   const playNotification = useSound();
-//   const currentUserId = localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null;
-//   const roomId = [currentUserId, user.id].sort().join('-');
+//   const { playNotification, playSent } = useSound();
+//   const {
+//     mediaFiles,
+//     setMediaFiles,
+//     uploadProgress,
+//     uploadError,
+//     setUploadError,
+//     isUploading,
+//     handleFileChange,
+//     uploadMedia,
+//     clearFiles
+//   } = useMediaUpload();
+  
+//   const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+//   const currentUserId = currentUser?.id;
+  
+//   // Generate private room ID consistently
+//   const generatePrivateRoomId = (user1Id, user2Id) => {
+//     const sorted = [Number(user1Id), Number(user2Id)].sort((a, b) => a - b);
+//     return `${sorted[0]}-${sorted[1]}`;
+//   };
+  
+//   const roomId = generatePrivateRoomId(currentUserId, user.id);
 //   const [isLoading, setIsLoading] = useState(false);
 //   const [isSending, setIsSending] = useState(false);
-//   const [pendingMessages, setPendingMessages] = useState([]);
-//   const [failedMessages, setFailedMessages] = useState({});
+//   const token = localStorage.getItem('accessToken');
+//   const tempMessagesRef = useRef({});
 
-//   // Initialize socket connection
 //   useEffect(() => {
-//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+//     if (!token) {
+//       return;
+//     }
+//   }, [token]);
+
+//   // Initialize socket connection and load messages
+//   useEffect(() => {
+//     console.log('PrivateChatScreen: Initializing for room:', roomId);
+    
+//     const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+//     socketRef.current = io(SOCKET_URL, {
 //       withCredentials: true,
 //       transports: ['websocket']
 //     });
 
-//     // Join private chat room
-//     socketRef.current.emit('joinRoom', { 
-//       roomId, 
-//       userId: currentUserId 
+//     socketRef.current.on('connect', () => {
+//       console.log('Private chat socket connected:', socketRef.current.id);
+//       socketRef.current.emit('joinRoom', { 
+//         roomId, 
+//         userId: currentUserId 
+//       });
+//     });
+  
+//     socketRef.current.on('disconnect', () => {
+//       console.log('Private chat socket disconnected');
+//     });
+  
+//     socketRef.current.on('connect_error', (err) => {
+//       console.error('Socket connection error:', err);
 //     });
 
 //     // Load existing messages
 //     const loadMessages = async () => {
 //       setIsLoading(true);
 //       try {
-//         const response = await axios.get(
-//           `${process.env.REACT_APP_API_URL}/messages/${roomId}`,
-//           {
-//             headers: { 
-//               Authorization: `Bearer ${localStorage.getItem('accessToken')}` 
-//             }
-//           }
-//         );
-//         setMessages(response.data.map(msg => ({
-//           ...msg,
-//           status: 'delivered' // Mark all loaded messages as delivered
-//         })));
+//         const response = await api.get(`/messages/${roomId}`);
+//         setMessages(response.data);
 //       } catch (error) {
 //         console.error('Error loading messages:', error);
-//         if (error.response?.status === 401) {
-//           // Handle unauthorized
+//         if (error.response?.status === 404) {
+//           setMessages([]);
+//         } else if (error.response?.status === 401) {
+//           onClose();
+//           setIsAuthModalOpen(true);
 //         }
 //       } finally {
 //         setIsLoading(false);
@@ -868,38 +628,42 @@ export default PrivateChatScreen;
 //     loadMessages();
 
 //     // Socket event listeners
-//     socketRef.current.on('newMessage', (message) => {
-//       setMessages(prev => [
-//         ...prev.filter(msg => msg.id !== message.tempId && msg.id !== message.id),
-//         { ...message, status: 'delivered' }
-//       ]);
+//     const handleNewMessage = (message) => {
+//       console.log('PrivateChat received message:', message);
       
-//       if (message.senderId !== currentUserId) {
+//       if (message.tempId && tempMessagesRef.current[message.tempId]) {
+//         setMessages(prev => prev.map(msg => 
+//           msg.tempId === message.tempId ? { ...message, isPending: false } : msg
+//         ));
+//         delete tempMessagesRef.current[message.tempId];
+//         playSent();
+//       } else if (message.senderId !== currentUserId) {
+//         setMessages(prev => [...prev, { ...message, isPending: false }]);
 //         playNotification();
 //       }
 //       scrollToBottom();
-//     });
+//     };
 
-//     socketRef.current.on('sendMessageError', ({ tempId, error }) => {
-//       setMessages(prev => prev.map(msg => 
-//         msg.id === tempId ? { ...msg, status: 'failed' } : msg
-//       ));
-//       setFailedMessages(prev => ({ ...prev, [tempId]: true }));
-//     });
-
-//     socketRef.current.on('typing', ({ userId, isTyping }) => {
-//       if (userId === user.id) {
-//         setRemoteIsTyping(isTyping);
-//       }
-//     });
-
-//     socketRef.current.on('userStatus', ({ userId, online }) => {
-//       if (userId === user.id) {
+//     const handleUserStatus = ({ userId: statusUserId, online }) => {
+//       if (statusUserId === user.id) {
 //         setIsOnline(online);
 //       }
-//     });
+//     };
+
+//     const handleTypingEvent = ({ userId: typingUserId, isTyping: typing }) => {
+//       if (typingUserId === user.id) {
+//         setRemoteIsTyping(typing);
+//       }
+//     };
+
+//     socketRef.current.on('newMessage', handleNewMessage);
+//     socketRef.current.on('userStatus', handleUserStatus);
+//     socketRef.current.on('typing', handleTypingEvent);
 
 //     return () => {
+//       socketRef.current.off('newMessage', handleNewMessage);
+//       socketRef.current.off('userStatus', handleUserStatus);
+//       socketRef.current.off('typing', handleTypingEvent);
 //       socketRef.current.disconnect();
 //     };
 //   }, [roomId, user.id, currentUserId]);
@@ -908,76 +672,165 @@ export default PrivateChatScreen;
 //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 //   };
 
-//   const handleSendMessage = async () => {
-//     if (!message.trim() || isSending) return;
-
-//     const tempId = Date.now();
-//     const newMessage = {
-//       id: tempId,
-//       content: message,
-//       type: 'text',
-//       senderId: currentUserId,
-//       createdAt: new Date().toISOString(),
-//       status: 'sending'
-//     };
-
-//     // Optimistic update
-//     setMessages(prev => [...prev, newMessage]);
-//     setPendingMessages(prev => [...prev, tempId]);
-//     setIsSending(true);
-//     setMessage('');
-//     setIsTyping(false);
-//     scrollToBottom();
-
-//     try {
-//       socketRef.current.emit('sendMessage', {
-//         roomId,
-//         message: {
-//           ...newMessage,
-//           tempId
-//         }
+//   const handleTyping = (typing) => {
+//     setIsTyping(typing);
+//     if (socketRef.current) {
+//       socketRef.current.emit('typing', { 
+//         roomId, 
+//         userId: currentUserId,
+//         isTyping: typing 
 //       });
+//     }
+//   };
+
+//   const handleSendMessage = async () => {
+//     if ((!message.trim() && !mediaFiles.length) || isSending) return;
+    
+//     setIsSending(true);
+//     const tempId = Date.now().toString();
+    
+//     try {
+//       let mediaUrls = [];
+//       if (mediaFiles.length) {
+//         const type = mediaFiles[0].type.split('/')[0];
+//         const uploadResponse = await uploadMedia(roomId, type);
+//         if (uploadResponse) {
+//           mediaUrls = uploadResponse.urls;
+//         }
+//       }
+
+//       const newMessage = {
+//         content: message,
+//         isGroup: false,
+//         type: mediaFiles.length ? mediaFiles[0].type.split('/')[0] : 'text',
+//         senderId: currentUserId,
+//         createdAt: new Date().toISOString(),
+//         tempId: tempId,
+//         isPending: true,
+//         mediaUrls: mediaUrls.length ? mediaUrls : undefined
+//       };
+  
+//       tempMessagesRef.current[tempId] = newMessage;
+    
+//       setMessages(prev => [...prev, {
+//         ...newMessage,
+//         id: tempId,
+//         sender: { username: 'You', id: currentUserId }
+//       }]);
+      
+//       if (socketRef.current && socketRef.current.connected) {
+//         socketRef.current.emit('sendMessage', {
+//           roomId,
+//           message: newMessage
+//         });
+//       } else {
+//         console.error('Socket not connected');
+//       }
+
+//       setMessage('');
+//       clearFiles();
+//       setIsTyping(false);
+//       scrollToBottom();
 //     } catch (error) {
-//       console.error('Failed to send message:', error);
-//       setMessages(prev => prev.map(msg => 
-//         msg.id === tempId ? { ...msg, status: 'failed' } : msg
-//       ));
-//       setFailedMessages(prev => ({ ...prev, [tempId]: true }));
+//       console.error('Error sending message:', error);
+//       setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
 //     } finally {
 //       setIsSending(false);
 //     }
 //   };
-
-//   const retryFailedMessage = (messageId) => {
-//     const message = messages.find(msg => msg.id === messageId);
-//     if (!message) return;
-
-//     setFailedMessages(prev => ({ ...prev, [messageId]: false }));
-//     setMessages(prev => prev.map(msg => 
-//       msg.id === messageId ? { ...msg, status: 'sending' } : msg
-//     ));
-
-//     socketRef.current.emit('sendMessage', {
-//       roomId,
-//       message: {
-//         ...message,
-//         tempId: messageId
+  
+//   const renderMessageContent = (msg) => {
+//     let mediaUrls = msg.mediaUrls;
+//     if (typeof mediaUrls === 'string') {
+//       try {
+//         mediaUrls = JSON.parse(mediaUrls);
+//       } catch (e) {
+//         mediaUrls = [];
 //       }
-//     });
+//     }
+    
+//     if (mediaUrls?.length > 0) {
+//       return (
+//         <div className="message-media">
+//           {mediaUrls.map((url, index) => {
+//             if (msg.type === 'image') {
+//               return <img key={index} src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} alt={`Media ${index}`} className="message-media-item" />;
+//             } else if (msg.type === 'video') {
+//               return (
+//                 <video key={index} controls className="message-media-item">
+//                   <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} />
+//                 </video>
+//               );
+//             } else if (msg.type === 'audio') {
+//               return (
+//                 <audio key={index} controls className="message-media-item">
+//                   <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} />
+//                 </audio>
+//               );
+//             } else {
+//               return (
+//                 <a key={index} href={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} target="_blank" rel="noopener noreferrer" className="message-file">
+//                   <FaFile /> Download File
+//                 </a>
+//               );
+//             }
+//           })}
+//           {msg.content && <div className="message-text">{msg.content}</div>}
+//         </div>
+//       );
+//     }
+//     return <div className="message-content">{msg.content}</div>;
 //   };
+  
+//   useEffect(() => {
+//     scrollToBottom();
+//   }, [messages]);
 
-//   const handleTyping = (typing) => {
-//     setIsTyping(typing);
-//     socketRef.current.emit('typing', { 
-//       roomId, 
-//       userId: currentUserId,
-//       isTyping: typing 
-//     });
-//   };
+//   // Handle incoming calls
+//   useEffect(() => {
+//     if (!socket) return;
+
+//     const handleIncomingCall = (callData) => {
+//       if (callData.callerId === user.id) {
+//         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
+//         if (confirmCall) {
+//           setCallType(callData.callType);
+//           setInCall(true);
+//           socket.emit('call-response', {
+//             response: 'accepted',
+//             callerId: callData.callerId,
+//             calleeId: currentUserId,
+//             roomId: callData.roomId
+//           });
+//         } else {
+//           socket.emit('call-response', {
+//             response: 'rejected',
+//             callerId: callData.callerId,
+//             calleeId: currentUserId,
+//             roomId: callData.roomId
+//           });
+//         }
+//         setIncomingCall(null);
+//       }
+//     };
+
+//     socket.on('incoming-call', handleIncomingCall);
+
+//     return () => {
+//       socket.off('incoming-call', handleIncomingCall);
+//     };
+//   }, [socket, user.id, currentUserId, setIncomingCall]);
 
 //   const startCall = (type) => {
 //     setCallType(type);
 //     setInCall(true);
+    
+//     socket.emit('call-notification', {
+//       callType: type,
+//       callerId: currentUserId,
+//       calleeIds: [user.id],
+//       roomId: roomId
+//     });
 //   };
 
 //   const endCall = () => {
@@ -985,14 +838,17 @@ export default PrivateChatScreen;
 //     setCallType(null);
 //   };
 
+//   const { callTechnology, toggleCallTechnology } = useVideoCall();
+
 //   return (
 //     <div className={`private-chat-container ${theme}`}>
 //       {inCall && (
 //         <VideoCall 
 //           roomId={roomId}
 //           userId={currentUserId}
-//           otherUserId={user.id}
+//           otherUserIds={[user.id]}
 //           callType={callType}
+//           setCallType={setCallType}
 //           onEndCall={endCall}
 //         />
 //       )}
@@ -1045,42 +901,43 @@ export default PrivateChatScreen;
 //             ) : (
 //               messages.map(msg => (
 //                 <div 
-//                   key={msg.id} 
-//                   className={`message ${msg.senderId === currentUserId ? 'sent' : 'received'} ${theme}`}
+//                   key={msg.id || msg.tempId} 
+//                   className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
 //                 >
-//                   <div className="message-content">
-//                     {msg.content}
-//                     {msg.senderId === currentUserId && (
-//                       <span className="message-status">
-//                         {msg.status === 'sending' && (
-//                           <FaSpinner className="spinner" />
-//                         )}
-//                         {msg.status === 'delivered' && (
-//                           <FaCheck className="delivered" />
-//                         )}
-//                         {msg.status === 'failed' && (
-//                           <div className="failed-message">
-//                             <FaExclamationTriangle className="failed-icon" />
-//                             <span className="failed-text">Couldn't send</span>
-//                             <button 
-//                               onClick={() => retryFailedMessage(msg.id)} 
-//                               className="retry-btn"
-//                             >
-//                               Retry
-//                             </button>
-//                           </div>
-//                         )}
-//                       </span>
-//                     )}
-//                   </div>
+//                   {msg.sender?.username && parseInt(msg.senderId) !== parseInt(currentUserId) && (
+//                     <div className="sender-name">{msg.sender.username}</div>
+//                   )}
+//                   {renderMessageContent(msg)}
 //                   <div className="message-time">
 //                     {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+//                     <span className="message-status">
+//                       {msg.isPending ? <FaSpinner className="spinner" /> : <FaCheck className="check-icon" />}
+//                     </span>
 //                   </div>
 //                 </div>
 //               ))
 //             )}
 //             <div ref={messagesEndRef} />
 //           </div>
+
+//           {mediaFiles.length > 0 && (
+//             <MediaPreview 
+//               mediaFiles={mediaFiles}
+//               onRemove={(index) => {
+//                 const newFiles = [...mediaFiles];
+//                 newFiles.splice(index, 1);
+//                 setMediaFiles(newFiles);
+//               }}
+//               uploadProgress={uploadProgress}
+//             />
+//           )}
+
+//           {uploadError && (
+//             <div className="upload-error">
+//               {uploadError}
+//               <button onClick={() => setUploadError(null)}>×</button>
+//             </div>
+//           )}
 
 //           <div className="message-input">
 //             <button 
@@ -1097,6 +954,7 @@ export default PrivateChatScreen;
 //                 }} />
 //               </div>
 //             )}
+//             <MediaControls onFileChange={handleFileChange} theme={theme} />
 //             <input
 //               type="text"
 //               value={message}
@@ -1110,23 +968,42 @@ export default PrivateChatScreen;
 //               placeholder="Type a message..."
 //               className={theme}
 //             />
-//             <div className="media-buttons">
-//               <button className={theme}><FaImage /></button>
-//               <button className={theme}><FaFile /></button>
-//             </div>
 //             <button 
 //               onClick={handleSendMessage} 
 //               className={`send-button ${theme}`}
-//               disabled={!message.trim() || isSending}
+//               disabled={isSending || isUploading}
 //             >
-//               {isSending ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
+//               {isSending || isUploading ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
 //             </button>
 //           </div>
 //         </div>
 
 //         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
-//           {/* User info section remains the same */}
-//           {/* ... */}
+//           <div className="receiver-avatar">
+//             {user?.avatar ? (
+//               <img className='user-avatar' src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user.avatar}`} alt={user.username} />
+//             ) : (
+//               <FaUser size={80} />
+//             )}
+//           </div>
+//           <h4>{user.username}</h4>
+//           <p className={`status ${user.online ? 'online' : 'offline'}`}>
+//             {user.online ? 'Online' : 'Offline'}
+//           </p>
+          
+//           <div className="user-details">
+//             <div className="detail-item">
+//               <span className="detail-label">Last Seen:</span>
+//               <span className="detail-value">
+//                 {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
+//               </span>
+//             </div>
+//           </div>
+          
+//           <div className="user-bio">
+//             <h5>About</h5>
+//             <p>{user.bio || 'No bio available'}</p>
+//           </div>
 //         </div>
 //       </div>
 //     </div>
@@ -1134,3 +1011,1143 @@ export default PrivateChatScreen;
 // };
 
 // export default PrivateChatScreen;
+
+
+// // -----------------------------------------------
+// // import React, { useState, useEffect, useRef, useContext } from 'react';
+// // import axios from 'axios';
+// // import { useNavigate } from 'react-router-dom';
+// // import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, 
+// //   FaPhone, FaVideoSlash,FaCheck, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
+// // import EmojiPicker from 'emoji-picker-react';
+// // import { ThemeContext, SocketContext, NotificationContext } from '../App';
+// // import io from 'socket.io-client';
+// // import useSound from '../hooks/useSound';
+// // import VideoCall from '../components/media/VideoCall';
+// // import useMediaUpload from '../hooks/useMediaUpload';
+// // import MediaControls from '../components/media/MediaControls';
+// // import MediaPreview from '../components/media/MediaPreview';
+// // import {useVideoCall} from '../contexts/VideoCallContext'
+
+// // const PrivateChatScreen = ({ user, onClose, setIsAuthModalOpen }) => {
+// //   const { theme } = useContext(ThemeContext);
+// //   const socket = useContext(SocketContext);
+// //   const { setIncomingCall } = useContext(NotificationContext);
+// //   const navigate = useNavigate();
+// //   const [message, setMessage] = useState('');
+// //   const [messages, setMessages] = useState([]);
+// //   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+// //   const [isTyping, setIsTyping] = useState(false);
+// //   const [remoteIsTyping, setRemoteIsTyping] = useState(false);
+// //   const [isOnline, setIsOnline] = useState(user.online);
+// //   const [inCall, setInCall] = useState(false);
+// //   const [callType, setCallType] = useState(null);
+// //   const messagesEndRef = useRef(null);
+// //   const [activeTab, setActiveTab] = useState('chat');
+// //   const socketRef = useRef();
+// //   const { 
+// //     playNotification, 
+// //     playGroupChat, 
+// //     playCall, 
+// //     playError,
+// //     playForeground,
+// //     playSent
+// //   } = useSound();
+// //   const {
+// //     mediaFiles,
+// //     setMediaFiles,
+// //     uploadProgress,
+// //     uploadError,
+// //     setUploadError,
+// //     isUploading,
+// //     handleFileChange,
+// //     uploadMedia,
+// //     clearFiles
+// //   } = useMediaUpload();
+  
+// //   const currentUserId = localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null;
+// //   const roomId = [currentUserId, user.id].sort().join('-');
+// //   const [isLoading, setIsLoading] = useState(false);
+// //   const [isSending, setIsSending] = useState(false);
+// //   const [failedMessages, setFailedMessages] = useState({});
+// //   const token = localStorage.getItem('accessToken');
+// //   const [pendingMessages, setPendingMessages] = useState([]);
+// //   const [tempMessages, setTempMessages] = useState({});
+// //   const tempMessagesRef = useRef({});
+// //   const [ringtone, setRingtone] = useState(null);
+// //   const { callTechnology, toggleCallTechnology } = useVideoCall();
+
+
+// //   useEffect(()=>{
+// //     if (!token) {
+// //       // Redirect to login or handle missing token
+// //       return;
+// //     }
+// //   })
+// //   // Initialize socket connection
+// //   useEffect(() => {
+// //     console.log('Initializing socket connection...'); // Add this
+// //     const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+// //     socketRef.current = io(SOCKET_URL, {
+// //       withCredentials: true,
+// //       transports: ['websocket']
+// //     });
+
+// //     // Add connection event listeners
+// //     socketRef.current.on('connect', () => {
+// //       console.log('Socket connected:', socketRef.current.id);
+// //     });
+  
+// //     socketRef.current.on('disconnect', () => {
+// //       console.log('Socket disconnected');
+// //     });
+  
+// //     socketRef.current.on('connect_error', (err) => {
+// //       console.error('Socket connection error:', err);
+// //     });
+
+// //     // Join private chat room
+// //     socketRef.current.emit('joinRoom', { 
+// //       roomId, 
+// //       userId: currentUserId 
+// //     });
+
+// //     // Load existing messages
+// //     const loadMessages = async () => {
+// //       setIsLoading(true);
+// //       try {
+// //         const response = await axios.get(
+// //           `${process.env.REACT_APP_API_URL}/messages/${roomId}`,
+// //           {
+// //             headers: { 
+// //               Authorization: `Bearer ${localStorage.getItem('accessToken')}` 
+// //             }
+// //           }
+// //         );
+// //         setMessages(response.data); // Axios automatically parses JSON
+// //       } catch (error) {
+// //         console.error('Error loading messages:', error);
+// //         // Optional: Add error handling for 401/403/404
+// //         if (error.response) {
+// //           console.error('Server responded with:', error.response.status);
+// //           if (error.response.status === 401) {
+// //             // Handle unauthorized (e.g., redirect to login)
+// //             onClose();
+// //             setIsAuthModalOpen(true);
+// //           }
+// //         }
+// //       } finally {
+// //         setIsLoading(false);
+// //       }
+// //     };
+// //     loadMessages();
+
+// //     // Socket event listeners
+// //     const handleNewMessage = (message) => {
+// //       console.log('SOCKET RECEIVE', message.tempId, tempMessagesRef.current, tempMessagesRef.current[message.tempId]);
+      
+// //       // Check if this is a response to our own message
+// //       if (message.tempId && tempMessagesRef.current[message.tempId]) {
+// //         // Replace the temporary message with the actual one from server
+// //         setMessages(prev => prev.map(msg => 
+// //           msg.tempId === message.tempId ? { ...message, isPending: false } : msg
+// //         ));
+        
+// //         // Remove from temp storage
+// //         delete tempMessagesRef.current[message.tempId];
+// //         playSent();
+// //         setTempMessages(prev => {
+// //           const newTemp = {...prev};
+// //           delete newTemp[message.tempId];
+// //           return newTemp;
+// //         });
+// //       } 
+// //       // If it's a new message from other user
+// //       else if (message.senderId !== currentUserId) {
+// //         setMessages(prev => [...prev, { ...message, isPending: false }]);
+// //         // Play sound only for new messages from others, not for our own messages
+// //         playNotification();
+// //       }
+// //       scrollToBottom();
+// //     };
+
+// //     socketRef.current.on('newMessage', handleNewMessage);
+
+// //     socketRef.current.on('typing', ({ userId, isTyping }) => {
+// //       if (userId === user.id) {
+// //         setRemoteIsTyping(isTyping);
+// //       }
+// //     });
+
+// //     socketRef.current.on('userStatus', ({ userId, online }) => {
+// //       if (userId === user.id) {
+// //         setIsOnline(online);
+// //       }
+// //     });
+
+// //     return () => {
+// //       console.log('Cleaning up socket...'); // Add this
+// //       socketRef.current.off('newMessage', handleNewMessage);
+// //       socketRef.current.disconnect();
+// //     };
+// //   }, [roomId, user.id, currentUserId,/* playNotification,playSent*/]);
+
+// //   const scrollToBottom = () => {
+// //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+// //   };
+
+// //   const handleTyping = (typing) => {
+// //     setIsTyping(typing);
+// //     socketRef.current.emit('typing', { 
+// //       roomId, 
+// //       userId: currentUserId,
+// //       isTyping: typing 
+// //     });
+// //   };
+
+// //   const handleSendMessage = async () => {
+// //     if ((!message.trim() && !mediaFiles.length) || isSending) return;
+    
+// //     setIsSending(true);
+// //     const tempId = Date.now().toString();
+    
+// //     try {
+// //       let mediaUrls = [];
+// //       if (mediaFiles.length) {
+// //         const type = mediaFiles[0].type.split('/')[0];
+// //         const uploadResponse = await uploadMedia(roomId, type);
+// //         if (uploadResponse) {
+// //           mediaUrls = uploadResponse.urls;
+// //         }
+// //       }
+
+// //       const newMessage = {
+// //         content: message,
+// //         isGroup: false,
+// //         type: mediaFiles.length ? mediaFiles[0].type.split('/')[0] : 'text',
+// //         senderId: currentUserId,
+// //         createdAt: new Date().toISOString(),
+// //         tempId: tempId,
+// //         isPending: true,
+// //         mediaUrls: mediaUrls.length ? mediaUrls : undefined
+// //       };
+  
+// //       // Store temporary message in both state and ref
+// //       tempMessagesRef.current[tempId] = newMessage;
+// //       setTempMessages(prev => ({...prev, [tempId]: newMessage}));
+    
+// //       // Optimistic update
+// //       setMessages(prev => [...prev, {
+// //         ...newMessage,
+// //         id: tempId,
+// //         sender: 'You'
+// //       }]);
+      
+// //       // Emit to server
+// //       socketRef.current.emit('sendMessage', {
+// //         roomId,
+// //         message: {
+// //           ...newMessage,
+// //           tempId: tempId // Include tempId in the emitted message
+// //         }
+// //       });
+
+// //       setMessage('');
+// //       clearFiles();
+// //       setIsTyping(false);
+// //       scrollToBottom();
+// //     } catch (error) {
+// //       console.error('Error sending message:', error);
+// //     } finally {
+// //       setIsSending(false);
+// //     }
+// //   };
+  
+// //   // Update message rendering to handle media
+// //   const renderMessageContent = (msg) => {
+// //     // if (msg.mediaUrls?.length) {
+// //     if (msg.mediaUrls?.length > 0 && (Array.isArray(msg.mediaUrls) || Array.isArray(JSON.parse(msg.mediaUrls)))) {
+// //       const mediaUrl = Array.isArray(msg.mediaUrls)?msg.mediaUrls:JSON.parse(msg.mediaUrls);
+// //       return (
+// //         <div className="message-media">
+// //           {mediaUrl.map((url, index) => {
+// //             if (msg.type === 'image') {
+// //               return <img key={index} src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} alt={`Media ${index}`} className="message-media-item" />;
+// //             } else if (msg.type === 'video') {
+// //               return (
+// //                 <video key={index} controls className="message-media-item">
+// //                   <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} type={`video/${url.split('.').pop()}`} />
+// //                 </video>
+// //               );
+// //             } else if (msg.type === 'audio') {
+// //               return (
+// //                 <audio key={index} controls className="message-media-item">
+// //                   <source src={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} type={`audio/${url.split('.').pop()}`} />
+// //                 </audio>
+// //               );
+// //             } else {
+// //               return (
+// //                 <a 
+// //                   key={index} 
+// //                   href={`${process.env.REACT_APP_API_URL.replace('/api','')}${url}`} 
+// //                   target="_blank" 
+// //                   rel="noopener noreferrer"
+// //                   className="message-file"
+// //                 >
+// //                   <FaFile /> Download File
+// //                 </a>
+// //               );
+// //             }
+// //           })}
+// //           {msg.content && <div className="message-text">{msg.content}</div>}
+// //         </div>
+// //       );
+// //     }
+// //     return <div className="message-content">{msg.content}</div>;
+// //   };
+  
+// //   useEffect(() => {
+// //     scrollToBottom();
+// //   }, [messages]);
+
+
+// //   // Handle incoming calls
+// //   useEffect(() => {
+// //     if (!socket) return;
+
+// //     const handleIncomingCall = (callData) => {
+// //       if (callData.callerId === user.id) {
+// //         // Stop any existing ringtone
+// //         if (ringtone) {
+// //           ringtone.pause();
+// //           ringtone.currentTime = 0;
+// //         }
+        
+// //         // Play new ringtone
+// //         const newRingtone = new Audio('/sounds/ringtone.mp3');
+// //         newRingtone.loop = true;
+// //         newRingtone.play().catch(e => console.log('Ringtone play failed:', e));
+// //         setRingtone(newRingtone);
+        
+// //         const confirmCall = window.confirm(`Incoming ${callData.callType} call from ${user.username}. Accept?`);
+// //         if (confirmCall) {
+// //           setCallType(callData.callType);
+// //           setInCall(true);
+// //           socket.emit('call-response', {
+// //             response: 'accepted',
+// //             callerId: callData.callerId,
+// //             calleeId: currentUserId,
+// //             roomId: callData.roomId
+// //           });
+// //         } else {
+// //           socket.emit('call-response', {
+// //             response: 'rejected',
+// //             callerId: callData.callerId,
+// //             calleeId: currentUserId,
+// //             roomId: callData.roomId
+// //           });
+// //         }
+// //         newRingtone.pause();
+// //         setRingtone(null);
+// //         setIncomingCall(null);
+// //       }
+// //     };
+
+// //     socket.on('incoming-call', handleIncomingCall);
+
+// //     return () => {
+// //       if (ringtone) {
+// //         ringtone.pause();
+// //         setRingtone(null);
+// //       }
+// //       socket.off('incoming-call', handleIncomingCall);
+// //     };
+// //   }, [socket, user.id, currentUserId, ringtone, setIncomingCall]);
+
+// //   const startCall = (type) => {
+// //     setCallType(type);
+// //     setInCall(true);
+    
+// //     // Notify the other user
+// //     socket.emit('call-notification', {
+// //       callType: type,
+// //       callerId: currentUserId,
+// //       calleeIds: [user.id],
+// //       roomId: roomId
+// //     });
+// //   };
+
+// //   const endCall = () => {
+// //     setInCall(false);
+// //     setCallType(null);
+// //   };
+
+// //   return (
+// //     <div className={`private-chat-container ${theme}`}>
+// //       {inCall && (
+// //         <VideoCall 
+// //           roomId={roomId}
+// //           userId={currentUserId}
+// //           otherUserIds={[user.id]}
+// //           callType={callType}
+// //           setCallType={setCallType}
+// //           onEndCall={endCall}
+// //         />
+// //       )}
+
+// //       <div className={`chat-header ${theme}`}>
+// //         <div className="header-user-info">
+// //           <h3>Chat with {user.username}</h3>
+// //           <div className={`status ${isOnline ? 'online' : 'offline'}`}>
+// //             {isOnline ? 'Online' : 'Offline'}
+// //             {remoteIsTyping && isOnline && ' • Typing...'}
+// //           </div>
+// //         </div>
+// //         <div className="header-actions">
+// //           <button 
+// //             className={`tech-toggle-btn ${theme}`}
+// //             onClick={toggleCallTechnology}
+// //             title={`Switch to ${callTechnology === 'webrtc' ? 'Agora' : 'WebRTC'}`}
+// //           >
+// //             {callTechnology === 'webrtc' ? 'Switch to Agora' : 'Switch to WebRTC'}
+// //           </button>
+// //           <button 
+// //             className={`call-btn ${theme}`}
+// //             onClick={() => startCall('video')}
+// //           >
+// //             <FaVideo />
+// //           </button>
+// //           <button 
+// //             className={`call-btn ${theme}`}
+// //             onClick={() => startCall('audio')}
+// //           >
+// //             <FaPhone />
+// //           </button>
+// //           <button onClick={onClose}>✕</button>
+// //         </div>
+// //       </div>
+      
+// //       {/* Mobile Tabs */}
+// //       <div className={`mobile-tabs ${theme}`}>
+// //         <button 
+// //           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
+// //           onClick={() => setActiveTab('chat')}
+// //         >
+// //           <FaPaperPlane /> Chat
+// //         </button>
+// //         <button 
+// //           className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+// //           onClick={() => setActiveTab('info')}
+// //         >
+// //           <FaUser /> Info
+// //         </button>
+// //       </div>
+
+// //       <div className="chat-layout">
+// //         {/* Messages Section */}
+// //         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
+// //           <div className="messages-container">
+// //             {messages.map(msg => (
+// //               <div 
+// //                 key={msg.id || msg.tempId} 
+// //                 className={`message ${parseInt(msg.senderId) === parseInt(currentUserId) ? 'sent' : 'received'} ${theme} ${msg.isPending ? 'pending' : ''}`}
+// //               >
+// //                 {/* {parseInt(msg.senderId) !== parseInt(currentUserId) && (
+// //                   <div className="sender-name">
+// //                     {msg.sender.username || 'Unknown User'}
+// //                   </div>
+// //                 )} */}
+                
+// //                 {renderMessageContent(msg)}
+// //                 {/* <div className="message-content">{msg.content}</div> */}
+// //                 <div className="message-time">
+// //                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+// //                   {/* {msg.isPending && <FaSpinner className="spinner" />} */}
+// //                   <span className="message-status">
+// //                     {msg.isPending ? (
+// //                       <FaSpinner className="spinner" />
+// //                     ) : (
+// //                       <FaCheck className="check-icon" />
+// //                     )}
+// //                   </span>
+// //                 </div>
+// //               </div>
+// //             ))}
+// //             <div ref={messagesEndRef} />
+// //           </div>
+
+// //           {mediaFiles.length > 0 && (
+// //             <MediaPreview 
+// //               mediaFiles={mediaFiles}
+// //               onRemove={(index) => {
+// //                 const newFiles = [...mediaFiles];
+// //                 newFiles.splice(index, 1);
+// //                 setMediaFiles(newFiles);
+// //               }}
+// //               uploadProgress={uploadProgress}
+// //             />
+// //           )}
+
+// //           {uploadError && (
+// //             <div className="upload-error">
+// //               {uploadError}
+// //               <button onClick={() => setUploadError(null)}>×</button>
+// //             </div>
+// //           )}
+
+// //           <div className="message-input">
+// //             <button 
+// //               className={`emoji-btn ${theme}`}
+// //               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+// //             >
+// //               <FaSmile />
+// //             </button>
+// //             {showEmojiPicker && (
+// //               <div className="emoji-picker">
+// //                 <EmojiPicker onEmojiClick={(e) => {
+// //                   setMessage(m => m + e.emoji);
+// //                   setShowEmojiPicker(false);
+// //                 }} />
+// //               </div>
+// //             )}
+// //             <MediaControls 
+// //               onFileChange={handleFileChange}
+// //               theme={theme}
+// //             />
+// //             <input
+// //               type="text"
+// //               value={message}
+// //               onChange={(e) => {
+// //                 setMessage(e.target.value);
+// //                 handleTyping(!!e.target.value);
+// //               }}
+// //               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+// //               onFocus={() => handleTyping(true)}
+// //               onBlur={() => handleTyping(false)}
+// //               placeholder="Type a message..."
+// //               className={theme}
+// //             />
+// //             <button 
+// //               onClick={handleSendMessage} 
+// //               className={`send-button ${theme}`}
+// //               disabled={isSending || isUploading}
+// //             >
+// //               {isSending || isUploading ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
+// //             </button>
+// //           </div>
+// //         </div>
+
+// //         {/* User Info Section */}
+// //         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
+// //             <div className="receiver-avatar">
+// //                 {user?.avatar ? (
+// //                 <img className='user-avatar' src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${user?.avatar??"/uploads/avatar/default-avatar.png"}`} alt={user.username} />
+// //                 ) : (
+// //                 <FaUser size={80} />
+// //                 )}
+// //             </div>
+// //             <h4>{user.username}</h4>
+// //             <p className={`status ${user.online ? 'online' : 'offline'}`}>
+// //                 {user.online ? 'Online' : 'Offline'}
+// //             </p>
+            
+// //             <div className="user-details">
+// //                 <div className="detail-item">
+// //                 <span className="detail-label">Last Seen:</span>
+// //                 <span className="detail-value">
+// //                     {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
+// //                 </span>
+// //                 </div>
+                
+// //                 <div className="detail-item">
+// //                 <span className="detail-label">Member Since:</span>
+// //                 <span className="detail-value">
+// //                     {new Date(user.joinDate).toLocaleDateString()}
+// //                 </span>
+// //                 </div>
+                
+// //                 <div className="detail-item">
+// //                 <span className="detail-label">Common Groups:</span>
+// //                 <span className="detail-value">
+// //                     {user.commonGroups?.length || 0}
+// //                 </span>
+// //                 </div>
+// //             </div>
+            
+// //             <div className="user-actions">
+// //                 <button className={`action-btn ${theme}`}>
+// //                 <FaVideo /> Video Call
+// //                 </button>
+// //                 <button className={`action-btn ${theme}`}>
+// //                 <FaPhone /> Voice Call
+// //                 </button>
+// //             </div>
+            
+// //             <div className="shared-media">
+// //                 <h5>Shared Media</h5>
+// //                 <div className="media-grid">
+// //                 {user.sharedMedia?.slice(0, 4).map((media, index) => (
+// //                     <div key={index} className="media-thumbnail">
+// //                     {media.type === 'image' ? (
+// //                         <img src={media.url} alt={`Shared ${index}`} />
+// //                     ) : media.type === 'video' ? (
+// //                         <FaVideo />
+// //                     ) : (
+// //                         <FaFile />
+// //                     )}
+// //                     </div>
+// //                 ))}
+// //                 {(!user.sharedMedia || user.sharedMedia.length === 0) && (
+// //                     <p className="no-media">No shared media yet</p>
+// //                 )}
+// //                 </div>
+// //             </div>
+            
+// //             <div className="user-bio">
+// //                 <h5>About</h5>
+// //                 <p>{user.bio || 'No bio available'}</p>
+// //             </div>
+// //         </div>
+// //       </div>
+// //     </div>
+// //   );
+// // };
+
+// // export default PrivateChatScreen;
+// // // ************************************
+
+// // // import React, { useState, useRef, useEffect, useContext } from 'react';
+// // // import { FaPaperPlane, FaSmile, FaImage, FaVideo, FaMusic, FaUser, FaFile, FaPhone } from 'react-icons/fa';
+// // // import EmojiPicker from 'emoji-picker-react';
+// // // import { ThemeContext } from '../App';
+
+// // // const PrivateChatScreen = ({ user, onClose }) => {
+// // //   const { theme } = useContext(ThemeContext);
+// // //   const [message, setMessage] = useState('');
+// // //   const [messages, setMessages] = useState([]);
+// // //   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+// // //   const messagesEndRef = useRef(null);
+// // //   const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'info'
+
+// // //   const handleSendMessage = () => {
+// // //     if (message.trim()) {
+// // //       setMessages([...messages, {
+// // //         id: Date.now(),
+// // //         text: message,
+// // //         sender: 'You',
+// // //         timestamp: new Date().toLocaleTimeString()
+// // //       }]);
+// // //       setMessage('');
+// // //     }
+// // //   };
+
+// // //   useEffect(() => {
+// // //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+// // //   }, [messages]);
+
+// // //   return (
+// // //     <div className={`private-chat-container ${theme}`}>
+// // //       <div className={`chat-header ${theme}`}>
+// // //         <h3>Chat with {user.username}</h3>
+// // //         <button onClick={onClose}>✕</button>
+// // //       </div>
+      
+// // //       {/* Mobile Tabs */}
+// // //       <div className={`mobile-tabs ${theme}`}>
+// // //         <button 
+// // //           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
+// // //           onClick={() => setActiveTab('chat')}
+// // //         >
+// // //           <FaPaperPlane /> Chat
+// // //         </button>
+// // //         <button 
+// // //           className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+// // //           onClick={() => setActiveTab('info')}
+// // //         >
+// // //           <FaUser /> Info
+// // //         </button>
+// // //       </div>
+
+// // //       <div className="chat-layout">
+// // //         {/* Messages Section - now conditionally rendered */}
+// // //         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
+// // //           <div className="messages-container">
+// // //             {messages.map(msg => (
+// // //               <div 
+// // //                 key={msg.id} 
+// // //                 className={`message ${msg.sender === 'You' ? 'sent' : 'received'} ${theme}`}
+// // //               >
+// // //                 <div className="message-content">{msg.text}</div>
+// // //                 <div className="message-time">{msg.timestamp}</div>
+// // //               </div>
+// // //             ))}
+// // //             <div ref={messagesEndRef} />
+// // //           </div>
+
+// // //           <div className="message-input">
+// // //             <button 
+// // //               className={`emoji-btn ${theme}`}
+// // //               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+// // //             >
+// // //               <FaSmile />
+// // //             </button>
+// // //             {showEmojiPicker && (
+// // //               <div className="emoji-picker">
+// // //                 <EmojiPicker onEmojiClick={(e) => {
+// // //                   setMessage(m => m + e.emoji);
+// // //                   setShowEmojiPicker(false);
+// // //                 }} />
+// // //               </div>
+// // //             )}
+// // //             <input
+// // //               type="text"
+// // //               value={message}
+// // //               onChange={(e) => setMessage(e.target.value)}
+// // //               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+// // //               placeholder="Type a message..."
+// // //               className={theme}
+// // //             />
+// // //             <div className="media-buttons">
+// // //               <button className={theme}><FaImage /></button>
+// // //               <button className={theme}><FaVideo /></button>
+// // //               <button className={theme}><FaMusic /></button>
+// // //             </div>
+// // //             <button 
+// // //               onClick={handleSendMessage} 
+// // //               className={`send-button ${theme}`}
+// // //             >
+// // //               <FaPaperPlane />
+// // //             </button>
+// // //           </div>
+// // //         </div>
+
+// // //         {/* User Info Section - now conditionally rendered */}
+// // //         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
+// // //             <div className="user-avatar">
+// // //                 {user.avatar ? (
+// // //                 <img src={user.avatar} alt={user.username} />
+// // //                 ) : (
+// // //                 <FaUser size={80} />
+// // //                 )}
+// // //             </div>
+// // //             <h4>{user.username}</h4>
+// // //             <p className={`status ${user.online ? 'online' : 'offline'}`}>
+// // //                 {user.online ? 'Online' : 'Offline'}
+// // //             </p>
+            
+// // //             <div className="user-details">
+// // //                 <div className="detail-item">
+// // //                 <span className="detail-label">Last Seen:</span>
+// // //                 <span className="detail-value">
+// // //                     {user.lastSeen || (user.online ? 'Now' : 'Unknown')}
+// // //                 </span>
+// // //                 </div>
+                
+// // //                 <div className="detail-item">
+// // //                 <span className="detail-label">Member Since:</span>
+// // //                 <span className="detail-value">
+// // //                     {new Date(user.joinDate).toLocaleDateString()}
+// // //                 </span>
+// // //                 </div>
+                
+// // //                 <div className="detail-item">
+// // //                 <span className="detail-label">Common Groups:</span>
+// // //                 <span className="detail-value">
+// // //                     {user.commonGroups?.length || 0}
+// // //                 </span>
+// // //                 </div>
+// // //             </div>
+            
+// // //             <div className="user-actions">
+// // //                 <button className={`action-btn ${theme}`}>
+// // //                 <FaVideo /> Video Call
+// // //                 </button>
+// // //                 <button className={`action-btn ${theme}`}>
+// // //                 <FaPhone /> Voice Call
+// // //                 </button>
+// // //             </div>
+            
+// // //             <div className="shared-media">
+// // //                 <h5>Shared Media</h5>
+// // //                 <div className="media-grid">
+// // //                 {user.sharedMedia?.slice(0, 4).map((media, index) => (
+// // //                     <div key={index} className="media-thumbnail">
+// // //                     {media.type === 'image' ? (
+// // //                         <img src={media.url} alt={`Shared ${index}`} />
+// // //                     ) : media.type === 'video' ? (
+// // //                         <FaVideo />
+// // //                     ) : (
+// // //                         <FaFile />
+// // //                     )}
+// // //                     </div>
+// // //                 ))}
+// // //                 {(!user.sharedMedia || user.sharedMedia.length === 0) && (
+// // //                     <p className="no-media">No shared media yet</p>
+// // //                 )}
+// // //                 </div>
+// // //             </div>
+            
+// // //             <div className="user-bio">
+// // //                 <h5>About</h5>
+// // //                 <p>{user.bio || 'No bio available'}</p>
+// // //             </div>
+// // //         </div>
+// // //       </div>
+// // //     </div>
+// // //   );
+// // // };
+
+// // // export default PrivateChatScreen;
+
+
+// // // ****************************************************
+
+// // // import React, { useState, useEffect, useRef, useContext } from 'react';
+// // // import axios from 'axios';
+// // // import { 
+// // //   FaPaperPlane, 
+// // //   FaSmile, 
+// // //   FaImage, 
+// // //   FaVideo, 
+// // //   FaUser, 
+// // //   FaFile, 
+// // //   FaPhone,
+// // //   FaCheck,
+// // //   FaExclamationTriangle,
+// // //   FaSpinner
+// // // } from 'react-icons/fa';
+// // // import EmojiPicker from 'emoji-picker-react';
+// // // import { ThemeContext } from '../App';
+// // // import io from 'socket.io-client';
+// // // import useSound from '../hooks/useSound';
+// // // import VideoCall from '../components/VideoCall';
+// // // import './PrivateChatScreen.css'; // Make sure to create this CSS file
+
+// // // const PrivateChatScreen = ({ user, onClose }) => {
+// // //   const { theme } = useContext(ThemeContext);
+// // //   const [message, setMessage] = useState('');
+// // //   const [messages, setMessages] = useState([]);
+// // //   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+// // //   const [isTyping, setIsTyping] = useState(false);
+// // //   const [remoteIsTyping, setRemoteIsTyping] = useState(false);
+// // //   const [isOnline, setIsOnline] = useState(user.online);
+// // //   const [inCall, setInCall] = useState(false);
+// // //   const [callType, setCallType] = useState(null);
+// // //   const messagesEndRef = useRef(null);
+// // //   const [activeTab, setActiveTab] = useState('chat');
+// // //   const socketRef = useRef();
+// // //   const playNotification = useSound();
+// // //   const currentUserId = localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null;
+// // //   const roomId = [currentUserId, user.id].sort().join('-');
+// // //   const [isLoading, setIsLoading] = useState(false);
+// // //   const [isSending, setIsSending] = useState(false);
+// // //   const [pendingMessages, setPendingMessages] = useState([]);
+// // //   const [failedMessages, setFailedMessages] = useState({});
+
+// // //   // Initialize socket connection
+// // //   useEffect(() => {
+// // //     socketRef.current = io(`${process.env.REACT_APP_SOCKET_URL}`, {
+// // //       withCredentials: true,
+// // //       transports: ['websocket']
+// // //     });
+
+// // //     // Join private chat room
+// // //     socketRef.current.emit('joinRoom', { 
+// // //       roomId, 
+// // //       userId: currentUserId 
+// // //     });
+
+// // //     // Load existing messages
+// // //     const loadMessages = async () => {
+// // //       setIsLoading(true);
+// // //       try {
+// // //         const response = await axios.get(
+// // //           `${process.env.REACT_APP_API_URL}/messages/${roomId}`,
+// // //           {
+// // //             headers: { 
+// // //               Authorization: `Bearer ${localStorage.getItem('accessToken')}` 
+// // //             }
+// // //           }
+// // //         );
+// // //         setMessages(response.data.map(msg => ({
+// // //           ...msg,
+// // //           status: 'delivered' // Mark all loaded messages as delivered
+// // //         })));
+// // //       } catch (error) {
+// // //         console.error('Error loading messages:', error);
+// // //         if (error.response?.status === 401) {
+// // //           // Handle unauthorized
+// // //         }
+// // //       } finally {
+// // //         setIsLoading(false);
+// // //       }
+// // //     };
+// // //     loadMessages();
+
+// // //     // Socket event listeners
+// // //     socketRef.current.on('newMessage', (message) => {
+// // //       setMessages(prev => [
+// // //         ...prev.filter(msg => msg.id !== message.tempId && msg.id !== message.id),
+// // //         { ...message, status: 'delivered' }
+// // //       ]);
+      
+// // //       if (message.senderId !== currentUserId) {
+// // //         playNotification();
+// // //       }
+// // //       scrollToBottom();
+// // //     });
+
+// // //     socketRef.current.on('sendMessageError', ({ tempId, error }) => {
+// // //       setMessages(prev => prev.map(msg => 
+// // //         msg.id === tempId ? { ...msg, status: 'failed' } : msg
+// // //       ));
+// // //       setFailedMessages(prev => ({ ...prev, [tempId]: true }));
+// // //     });
+
+// // //     socketRef.current.on('typing', ({ userId, isTyping }) => {
+// // //       if (userId === user.id) {
+// // //         setRemoteIsTyping(isTyping);
+// // //       }
+// // //     });
+
+// // //     socketRef.current.on('userStatus', ({ userId, online }) => {
+// // //       if (userId === user.id) {
+// // //         setIsOnline(online);
+// // //       }
+// // //     });
+
+// // //     return () => {
+// // //       socketRef.current.disconnect();
+// // //     };
+// // //   }, [roomId, user.id, currentUserId]);
+
+// // //   const scrollToBottom = () => {
+// // //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+// // //   };
+
+// // //   const handleSendMessage = async () => {
+// // //     if (!message.trim() || isSending) return;
+
+// // //     const tempId = Date.now();
+// // //     const newMessage = {
+// // //       id: tempId,
+// // //       content: message,
+// // //       type: 'text',
+// // //       senderId: currentUserId,
+// // //       createdAt: new Date().toISOString(),
+// // //       status: 'sending'
+// // //     };
+
+// // //     // Optimistic update
+// // //     setMessages(prev => [...prev, newMessage]);
+// // //     setPendingMessages(prev => [...prev, tempId]);
+// // //     setIsSending(true);
+// // //     setMessage('');
+// // //     setIsTyping(false);
+// // //     scrollToBottom();
+
+// // //     try {
+// // //       socketRef.current.emit('sendMessage', {
+// // //         roomId,
+// // //         message: {
+// // //           ...newMessage,
+// // //           tempId
+// // //         }
+// // //       });
+// // //     } catch (error) {
+// // //       console.error('Failed to send message:', error);
+// // //       setMessages(prev => prev.map(msg => 
+// // //         msg.id === tempId ? { ...msg, status: 'failed' } : msg
+// // //       ));
+// // //       setFailedMessages(prev => ({ ...prev, [tempId]: true }));
+// // //     } finally {
+// // //       setIsSending(false);
+// // //     }
+// // //   };
+
+// // //   const retryFailedMessage = (messageId) => {
+// // //     const message = messages.find(msg => msg.id === messageId);
+// // //     if (!message) return;
+
+// // //     setFailedMessages(prev => ({ ...prev, [messageId]: false }));
+// // //     setMessages(prev => prev.map(msg => 
+// // //       msg.id === messageId ? { ...msg, status: 'sending' } : msg
+// // //     ));
+
+// // //     socketRef.current.emit('sendMessage', {
+// // //       roomId,
+// // //       message: {
+// // //         ...message,
+// // //         tempId: messageId
+// // //       }
+// // //     });
+// // //   };
+
+// // //   const handleTyping = (typing) => {
+// // //     setIsTyping(typing);
+// // //     socketRef.current.emit('typing', { 
+// // //       roomId, 
+// // //       userId: currentUserId,
+// // //       isTyping: typing 
+// // //     });
+// // //   };
+
+// // //   const startCall = (type) => {
+// // //     setCallType(type);
+// // //     setInCall(true);
+// // //   };
+
+// // //   const endCall = () => {
+// // //     setInCall(false);
+// // //     setCallType(null);
+// // //   };
+
+// // //   return (
+// // //     <div className={`private-chat-container ${theme}`}>
+// // //       {inCall && (
+// // //         <VideoCall 
+// // //           roomId={roomId}
+// // //           userId={currentUserId}
+// // //           otherUserId={user.id}
+// // //           callType={callType}
+// // //           onEndCall={endCall}
+// // //         />
+// // //       )}
+
+// // //       <div className={`chat-header ${theme}`}>
+// // //         <div className="header-user-info">
+// // //           <h3>Chat with {user.username}</h3>
+// // //           <div className={`status ${isOnline ? 'online' : 'offline'}`}>
+// // //             {isOnline ? 'Online' : 'Offline'}
+// // //             {remoteIsTyping && isOnline && ' • Typing...'}
+// // //           </div>
+// // //         </div>
+// // //         <div className="header-actions">
+// // //           <button 
+// // //             className={`call-btn ${theme}`}
+// // //             onClick={() => startCall('video')}
+// // //           >
+// // //             <FaVideo />
+// // //           </button>
+// // //           <button 
+// // //             className={`call-btn ${theme}`}
+// // //             onClick={() => startCall('audio')}
+// // //           >
+// // //             <FaPhone />
+// // //           </button>
+// // //           <button onClick={onClose}>✕</button>
+// // //         </div>
+// // //       </div>
+      
+// // //       <div className={`mobile-tabs ${theme}`}>
+// // //         <button 
+// // //           className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
+// // //           onClick={() => setActiveTab('chat')}
+// // //         >
+// // //           <FaPaperPlane /> Chat
+// // //         </button>
+// // //         <button 
+// // //           className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+// // //           onClick={() => setActiveTab('info')}
+// // //         >
+// // //           <FaUser /> Info
+// // //         </button>
+// // //       </div>
+
+// // //       <div className="chat-layout">
+// // //         <div className={`messages-section ${theme} ${activeTab === 'chat' ? 'mobile-active' : ''}`}>
+// // //           <div className="messages-container">
+// // //             {isLoading ? (
+// // //               <div className="loading-messages">Loading messages...</div>
+// // //             ) : (
+// // //               messages.map(msg => (
+// // //                 <div 
+// // //                   key={msg.id} 
+// // //                   className={`message ${msg.senderId === currentUserId ? 'sent' : 'received'} ${theme}`}
+// // //                 >
+// // //                   <div className="message-content">
+// // //                     {msg.content}
+// // //                     {msg.senderId === currentUserId && (
+// // //                       <span className="message-status">
+// // //                         {msg.status === 'sending' && (
+// // //                           <FaSpinner className="spinner" />
+// // //                         )}
+// // //                         {msg.status === 'delivered' && (
+// // //                           <FaCheck className="delivered" />
+// // //                         )}
+// // //                         {msg.status === 'failed' && (
+// // //                           <div className="failed-message">
+// // //                             <FaExclamationTriangle className="failed-icon" />
+// // //                             <span className="failed-text">Couldn't send</span>
+// // //                             <button 
+// // //                               onClick={() => retryFailedMessage(msg.id)} 
+// // //                               className="retry-btn"
+// // //                             >
+// // //                               Retry
+// // //                             </button>
+// // //                           </div>
+// // //                         )}
+// // //                       </span>
+// // //                     )}
+// // //                   </div>
+// // //                   <div className="message-time">
+// // //                     {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+// // //                   </div>
+// // //                 </div>
+// // //               ))
+// // //             )}
+// // //             <div ref={messagesEndRef} />
+// // //           </div>
+
+// // //           <div className="message-input">
+// // //             <button 
+// // //               className={`emoji-btn ${theme}`}
+// // //               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+// // //             >
+// // //               <FaSmile />
+// // //             </button>
+// // //             {showEmojiPicker && (
+// // //               <div className="emoji-picker">
+// // //                 <EmojiPicker onEmojiClick={(e) => {
+// // //                   setMessage(m => m + e.emoji);
+// // //                   setShowEmojiPicker(false);
+// // //                 }} />
+// // //               </div>
+// // //             )}
+// // //             <input
+// // //               type="text"
+// // //               value={message}
+// // //               onChange={(e) => {
+// // //                 setMessage(e.target.value);
+// // //                 handleTyping(!!e.target.value);
+// // //               }}
+// // //               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+// // //               onFocus={() => handleTyping(true)}
+// // //               onBlur={() => handleTyping(false)}
+// // //               placeholder="Type a message..."
+// // //               className={theme}
+// // //             />
+// // //             <div className="media-buttons">
+// // //               <button className={theme}><FaImage /></button>
+// // //               <button className={theme}><FaFile /></button>
+// // //             </div>
+// // //             <button 
+// // //               onClick={handleSendMessage} 
+// // //               className={`send-button ${theme}`}
+// // //               disabled={!message.trim() || isSending}
+// // //             >
+// // //               {isSending ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
+// // //             </button>
+// // //           </div>
+// // //         </div>
+
+// // //         <div className={`user-info-section ${theme} ${activeTab === 'info' ? 'mobile-active' : ''}`}>
+// // //           {/* User info section remains the same */}
+// // //           {/* ... */}
+// // //         </div>
+// // //       </div>
+// // //     </div>
+// // //   );
+// // // };
+
+// // // export default PrivateChatScreen;

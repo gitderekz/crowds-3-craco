@@ -14,7 +14,7 @@ router.post('/agora-token', authenticate, async (req, res) => {
     }
 
     const APP_ID = `${process.env.AGORA_APP_ID}`;
-    const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+    const APP_CERTIFICATE = process.env.REACT_APP_AGORA_APP_CERTIFICATE;
     const expirationTimeInSeconds = 3600; // 1 hour
     
     const currentTimestamp = Math.floor(Date.now() / 1000);

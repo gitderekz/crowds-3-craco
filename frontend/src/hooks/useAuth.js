@@ -1,33 +1,43 @@
 // src/hooks/useAuth.js
-import { useState, useEffect,useCallback } from 'react';
-import { api } from '../services/authService';
+import { useState, useEffect, useCallback } from 'react';
+import { api, clearTokens, getUser } from '../services/authService';
 
 const useAuth = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-  
-    const validateAuth = useCallback(async () => {
-      try {
-        const response = await api.get('/auth/validate');
-        setUser(response.data.user);
-        setIsAuthenticated(true);
-      } catch (error) {
-        setIsAuthenticated(false);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    }, []);
-  
-    useEffect(() => {
-      // Only validate if we have a token
-      if (localStorage.getItem('accessToken')) {
-        validateAuth();
-      } else {
-        setLoading(false);
-      }
-    }, [validateAuth]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const validateAuth = useCallback(async () => {
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token) {
+      setLoading(false);
+      setIsAuthenticated(false);
+      setUser(null);
+      return;
+    }
+    
+    try {
+      const response = await api.get('/auth/validate');
+      const userData = response.data.user;
+      setUser(userData);
+      setIsAuthenticated(true);
+      // Update localStorage with latest user data
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch (error) {
+      console.error('Auth validation error:', error);
+      // Clear invalid tokens
+      clearTokens();
+      setIsAuthenticated(false);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    validateAuth();
+  }, [validateAuth]);
 
   const logout = async () => {
     try {
@@ -35,7 +45,7 @@ const useAuth = () => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.clear();
+      clearTokens();
       setIsAuthenticated(false);
       setUser(null);
       window.location.href = '/';

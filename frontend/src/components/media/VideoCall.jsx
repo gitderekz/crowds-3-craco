@@ -1658,7 +1658,7 @@ export default VideoCall;
 //     const initCall = async () => {
 //       try {
 //         // Initialize socket connection
-//         socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+//         socketRef.current = io(`${process.env.REACT_APP_SOCKET_URL}`, {
 //           transports: ['websocket'],
 //           query: { userId, roomId }
 //         });
@@ -1863,7 +1863,7 @@ export default VideoCall;
 //   const socketRef = useRef();
 
 //   useEffect(() => {
-//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`);
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_URL}`);
     
 //     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 //       .then(stream => {
@@ -1931,7 +1931,7 @@ export default VideoCall;
 
 //   useEffect(() => {
 //     // Initialize socket connection
-//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+//     socketRef.current = io(`${process.env.REACT_APP_SOCKET_URL}`, {
 //       withCredentials: true,
 //       transports: ['websocket']
 //     });

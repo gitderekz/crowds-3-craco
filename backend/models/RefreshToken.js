@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-          model: 'Users', // Reference the 'user' table
+          model: 'users', // Reference the 'user' table
           key: 'id',
         },
         onDelete: 'CASCADE', // Delete refresh tokens when the associated user is deleted

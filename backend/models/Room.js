@@ -1,9 +1,10 @@
 module.exports = (sequelize, DataTypes) => {
   const room = sequelize.define('room', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
+      // type: DataTypes.INTEGER,
       primaryKey: true,
-      autoIncrement: true,
+      // autoIncrement: true,
     },
     presentUsers: {
       type: DataTypes.JSON,//ARRAY(DataTypes.INTEGER),

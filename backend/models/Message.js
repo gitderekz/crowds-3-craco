@@ -16,21 +16,42 @@ module.exports = (sequelize, DataTypes) => {
       mediaUrls: {
         type: DataTypes.JSON,
       },
+      // roomId: {
+      //   type: DataTypes.STRING,
+      //   allowNull: false,
+      // },
       roomId: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING, // Changed from STRING to INTEGER to match rooms.id
+        // type: DataTypes.INTEGER, // Changed from STRING to INTEGER to match rooms.id
         allowNull: false,
+        references: {
+          model: 'rooms', // lowercase to match your table name
+          key: 'id',
+        },
       },
       isGroup: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
+      },
+      senderId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'users', // lowercase to match your table name
+          key: 'id',
+        },
       },
     },
     {
       tableName: 'messages', // Explicitly set the table name to lowercase
     });
   
+    // message.associate = (models) => {
+    //   message.belongsTo(models.User, { foreignKey: 'senderId' });
+    // };
     message.associate = (models) => {
-      message.belongsTo(models.User, { foreignKey: 'senderId' });
+      message.belongsTo(models.user, { foreignKey: 'senderId', as: 'sender', onDelete: 'CASCADE' });
+      message.belongsTo(models.room, { foreignKey: 'roomId', as: 'room', onDelete: 'CASCADE' });
     };
   
     return message;

@@ -64,7 +64,7 @@ function App() {
   // Initialize socket connection
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      const newSocket = io(process.env.REACT_APP_SOCKET_SERVER, {
+      const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
         withCredentials: true,
         transports: ['websocket']
       });
@@ -117,6 +117,7 @@ function App() {
   }, [isAuthenticated]);
 
   const fetchPhotos = async () => {
+    console.log('URL: ',process.env.REACT_APP_API_URL);
     try {
       const response = await api.get(`/photos/home`);
       setPhotos(response.data);

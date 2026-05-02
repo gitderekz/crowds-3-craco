@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users', // References the Users table
+        model: 'users', // Changed from 'Users' to 'users' (lowercase)
         key: 'id',
       },
     },
@@ -18,22 +18,19 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Photos', // References the Photos table
+        model: 'photos', // Changed from 'Photos' to 'photos' (lowercase)
         key: 'id',
       },
     },
   },
   {
-    tableName: 'likes', // Explicitly set the table name to lowercase
+    tableName: 'likes',
   });
 
   // Define associations
   like.associate = (models) => {
-    // A like belongs to a user
-    like.belongsTo(models.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
-
-    // A like belongs to a photo
-    like.belongsTo(models.Photo, { foreignKey: 'photoId', onDelete: 'CASCADE' });
+    like.belongsTo(models.user, { foreignKey: 'userId', onDelete: 'CASCADE' });
+    like.belongsTo(models.photo, { foreignKey: 'photoId', onDelete: 'CASCADE' });
   };
 
   return like;

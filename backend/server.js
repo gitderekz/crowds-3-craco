@@ -241,20 +241,34 @@ io.on('connection', (socket) => {
   // Message handler
   socket.on('sendMessage', async ({ roomId, message }) => {
     try {
+      console.log('Received message:', { roomId, message });
+      
       // Save to database
       const newMessage = await db.message.create({
         content: message.content,
-        type: message.type,
-        mediaUrls: message.mediaUrls,
-        roomId,
-        senderId: message.senderId
+        type: message.type || 'text',
+        mediaUrls: message.mediaUrls || null,
+        roomId: roomId,
+        senderId: message.senderId,
+        isGroup: message.isGroup || false
+      });
+      
+      // Fetch the message with sender details
+      const messageWithSender = await db.message.findByPk(newMessage.id, {
+        include: [{
+          model: db.user,
+          as: 'sender',
+          attributes: ['id', 'username', 'avatar', 'createdAt', 'lastSeen']
+        }]
       });
       
       // Include the tempId in the response if it exists
       const responseMessage = {
-        ...newMessage.toJSON(),
+        ...messageWithSender.toJSON(),
         tempId: message.tempId
       };
+      
+      console.log('Broadcasting message to room:', roomId, responseMessage);
       
       // Broadcast to room
       io.to(roomId).emit('newMessage', responseMessage);

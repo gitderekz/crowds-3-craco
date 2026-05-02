@@ -19,19 +19,47 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
   const [selectedChatRoom, setSelectedChatRoom] = useState(null);
   const [privateChatUser, setPrivateChatUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [userId, setUserId] = useState(localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null); // Get logged-in user ID
-  // Inside the component
-  const gifIntervals = useRef({});
+  const [gifRefreshKey, setGifRefreshKey] = useState({});
+  const [fadingGif, setFadingGif] = useState({});
 
-  // Cleanup intervals on unmount
   useEffect(() => {
-    // userId = localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null;
-    console.log('LOGEDUSEER',localStorage.getItem('user')!==null?JSON.parse(localStorage.getItem('user'))?.id:null);
-    
-    return () => {
-      Object.values(gifIntervals.current).forEach(interval => clearInterval(interval));
-    };
-  }, []);
+    const interval = setInterval(() => {
+      photos.forEach((photo) => {
+        if (photo.mediaType === 'gif') {
+          setFadingGif(prev => ({ ...prev, [photo.id]: true }));
+
+          setTimeout(() => {
+            setGifRefreshKey(prev => ({
+              ...prev,
+              [photo.id]: Date.now()
+            }));
+
+            setFadingGif(prev => ({ ...prev, [photo.id]: false }));
+          }, 300);
+        }
+      });
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [photos]);
+
+  // // Inside the component
+  // const gifIntervals = useRef({});
+  // // Cleanup intervals on unmount
+  // useEffect(() => {
+  //   return () => {
+  //     Object.values(gifIntervals.current).forEach(interval => clearInterval(interval));
+  //   };
+  // }, []);
+  
+  const getUserId = () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      return user?.id || user?._id || null;
+    } catch (e) {
+      return null;
+    }
+  };
 
   const showAlert = (message, type) => {
     setAlert({ message, type });
@@ -39,6 +67,8 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
 
   // Handle like functionality
   const handleLike = async (photoId) => {
+    const userId = getUserId();
+
     if (!userId) {
       setIsAuthModalOpen(true);
       return;
@@ -74,6 +104,9 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
 
   const handleChatClick = (e, photo) => {
     e.stopPropagation();
+      
+    const userId = getUserId();
+
     
     if (!userId) {
       setIsAuthModalOpen(true);
@@ -106,9 +139,11 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
 
   // Filter photos based on clientId or publisher userId matching with logged-in user
   const filteredPhotos = photos.filter((photo) => {
+    const userId = getUserId();
+
     const { clientId, userId: publisherId } = photo;
     return (
-      (clientId && clientId === Number(userId)) || publisherId === Number(userId) || clientId === null
+      (clientId && clientId === Number(userId)) || publisherId === Number(userId) || clientId === 1 || clientId === null
     );
   });
 
@@ -147,9 +182,10 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
         
       ) : (
         filteredPhotos.map((photo) => {
+          const currentUserId = getUserId();
           // Check if the user has liked the photo
           const hasLiked =
-            likedPhotos[photo.id] || photo.likes.some((like) => like.userId === Number(userId));
+            likedPhotos[photo.id] || photo.likes.some((like) => like.userId === Number(currentUserId));
 
           // Check if it's a GIF by checking the file extension
           const isGif = photo.imageUrl.endsWith('.gif');
@@ -172,30 +208,47 @@ const PhotoGrid = ({ isSearching, photos, activeCategoryName }) => {
                   <div className="video-overlay">Play Video</div>
                 </div>
               ) : photo.mediaType === 'gif' ? (
-                // If it's a GIF, render it normally but ensure it loops endlessly
+                // // If it's a GIF, render it normally but ensure it loops endlessly
+                // <img
+                //   src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${photo.imageUrl}`}
+                //   alt={photo.name}
+                //   loading="lazy"
+                //   ref={(el) => {
+                //     if (el) {
+                //       // Clear existing interval (if any)
+                //       if (gifIntervals.current[photo.id]) {
+                //         clearInterval(gifIntervals.current[photo.id]);
+                //       }
+                //       // Set new interval with smooth transition
+                //       gifIntervals.current[photo.id] = setInterval(() => {
+                //         // Fade out
+                //         el.style.opacity = '0';
+                //         // After fade-out completes, reset src and fade back in
+                //         setTimeout(() => {
+                //           el.src = el.src;
+                //           el.style.opacity = '1';
+                //         }, 300); // Matches the CSS transition duration
+                //       }, 10000); // GIF restart interval (adjust as needed)
+                //     }
+                //   }}
+                //   style={{ transition: 'opacity 0.3s ease-in-out', display: 'block', width: '100%', height: 'auto', maxWidth: '100%', maxHeight: '100%', opacity: '1' }}
+                //   onError={(e) => {
+                //     if (e.target.src !== `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`) {
+                //       e.target.src = `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`;
+                //     }
+                //   }}
+                // />
                 <img
+                  key={gifRefreshKey[photo.id] || photo.id}
                   src={`${process.env.REACT_APP_API_URL.replace('/api', '')}${photo.imageUrl}`}
                   alt={photo.name}
                   loading="lazy"
-                  ref={(el) => {
-                    if (el) {
-                      // Clear existing interval (if any)
-                      if (gifIntervals.current[photo.id]) {
-                        clearInterval(gifIntervals.current[photo.id]);
-                      }
-                      // Set new interval with smooth transition
-                      gifIntervals.current[photo.id] = setInterval(() => {
-                        // Fade out
-                        el.style.opacity = '0';
-                        // After fade-out completes, reset src and fade back in
-                        setTimeout(() => {
-                          el.src = el.src;
-                          el.style.opacity = '1';
-                        }, 300); // Matches the CSS transition duration
-                      }, 10000); // GIF restart interval (adjust as needed)
-                    }
+                  style={{
+                    opacity: fadingGif[photo.id] ? 0 : 1,
+                    transition: 'opacity 0.3s ease-in-out',
+                    width: '100%',
+                    height: 'auto'
                   }}
-                  style={{ transition: 'opacity 0.3s ease-in-out', display: 'block', width: '100%', height: 'auto', maxWidth: '100%', maxHeight: '100%', opacity: '1' }}
                   onError={(e) => {
                     if (e.target.src !== `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`) {
                       e.target.src = `${process.env.REACT_APP_API_URL.replace('/api', '')}/uploads/placeholder.jpg`;

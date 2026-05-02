@@ -2,7 +2,8 @@
 module.exports = (sequelize, DataTypes) => {
     const roomuser = sequelize.define('roomuser', {
       roomId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
+        // type: DataTypes.INTEGER,
         primaryKey: true,
         references: {
           model: 'rooms',

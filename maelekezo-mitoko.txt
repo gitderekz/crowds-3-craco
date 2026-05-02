@@ -249,7 +249,7 @@ const VideoCall = ({ roomId, userId, onClose }) => {
   const socketRef = useRef();
 
   useEffect(() => {
-    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`);
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_URL}`);
     
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(stream => {
@@ -318,7 +318,7 @@ const VideoCall = ({ roomId, userId, otherUserId, callType, onEndCall }) => {
 
   useEffect(() => {
     // Initialize socket connection
-    socketRef.current = io(`${process.env.REACT_APP_SOCKET_SERVER}`, {
+    socketRef.current = io(`${process.env.REACT_APP_SOCKET_URL}`, {
       withCredentials: true,
       transports: ['websocket']
     });
